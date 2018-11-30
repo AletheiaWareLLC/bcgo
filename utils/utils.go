@@ -33,8 +33,8 @@ import (
 )
 
 const (
-    AES_PRIMARY_KEY_SIZE = 32
-    AES_SECONDARY_KEY_SIZE = 16
+    AES_KEY_SIZE_BITS = 128
+    AES_KEY_SIZE_BYTES = AES_KEY_SIZE_BITS / 8
 )
 
 func Hash(data []byte) []byte {
@@ -89,7 +89,7 @@ func RSAPublicKeyToPEM(publicKey *rsa.PublicKey) (*pem.Block, error) {
 
     // Create PEM block
     return &pem.Block{
-        Type:  "RSA PUBLIC KEY",
+        Type:  "PUBLIC KEY",
         Bytes: bytes,
     }, nil
 }
@@ -100,7 +100,7 @@ func RSAPrivateKeyToPEM(privateKey *rsa.PrivateKey, password []byte) (*pem.Block
     if err != nil {
         return nil, err
     }
-    return x509.EncryptPEMBlock(rand.Reader, "RSA PRIVATE KEY", data, password, x509.PEMCipherAES256)
+    return x509.EncryptPEMBlock(rand.Reader, "ENCRYPTED PRIVATE KEY", data, password, x509.PEMCipherAES128)
 }
 
 func HasRSAPrivateKey(directory string) bool {

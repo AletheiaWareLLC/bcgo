@@ -23,11 +23,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
+	"encoding/base64"
 	"errors"
 	"github.com/AletheiaWareLLC/bcgo/utils"
 	"github.com/golang/protobuf/proto"
 	"io"
+	"io/ioutil"
 	"log"
+	"path"
 	"time"
 )
 
@@ -38,12 +41,45 @@ const (
 	THRESHOLD_PVB_HOUR = 288 // 9/16
 	THRESHOLD_PVB_DAY  = 320 // 5/8
 	THRESHOLD_PVB_YEAR = 384 // 3/4
+
+	PORT_BLOCK  = 22222
+	PORT_HEAD   = 22232
+	PORT_KEYS   = 22322
+	PORT_STATUS = 23222
+	PORT_WRITE  = 23232
 )
 
 type Channel struct {
 	Name      string
 	Threshold uint64
 	Head      *Block
+	Cache     string
+}
+
+func (c *Channel) Update(hash []byte, block *Block) error {
+	head := Reference{
+		Timestamp:   block.Timestamp,
+		ChannelName: c.Name,
+		BlockHash:   hash,
+	}
+	if err := WriteHeadFile(c.Cache, c.Name, &head); err != nil {
+		return err
+	}
+	c.Head = block
+	return WriteBlockFile(c.Cache, hash, block)
+}
+
+func (c *Channel) LoadHead() error {
+	head, err := ReadHeadFile(c.Cache, c.Name)
+	if err != nil {
+		return err
+	}
+	block, err := ReadBlockFile(c.Cache, head.BlockHash)
+	if err != nil {
+		return err
+	}
+	c.Head = block
+	return nil
 }
 
 type Node struct {
@@ -74,6 +110,8 @@ func (n *Node) Mine(channel *Channel, entries []*BlockEntry) ([]byte, *Block, er
 		block.Previous = utils.Hash(data)
 	}
 
+	log.Println("Mining", channel.Name, proto.Size(block))
+
 	var nonce uint64
 	var max uint64
 	for ; nonce >= 0; nonce++ {
@@ -85,10 +123,15 @@ func (n *Node) Mine(channel *Channel, entries []*BlockEntry) ([]byte, *Block, er
 		hash := utils.Hash(data)
 		ones := utils.Ones(hash)
 		if ones > max {
-			log.Println("Mining: ", nonce, ": ", ones, "/", (len(hash) * 8))
+			log.Println("Mining", channel.Name, nonce, ones, "/", (len(hash) * 8))
 			max = ones
 		}
 		if ones > channel.Threshold {
+			log.Println("Mined", channel.Name, block.Timestamp, base64.RawURLEncoding.EncodeToString(hash))
+			err := channel.Update(hash, block)
+			if err != nil {
+				return nil, nil, err
+			}
 			return hash, block, nil
 		}
 	}
@@ -97,7 +140,7 @@ func (n *Node) Mine(channel *Channel, entries []*BlockEntry) ([]byte, *Block, er
 
 func CreateMessage(sender *rsa.PrivateKey, recipients []*rsa.PublicKey, references []*Reference, payload []byte) (*Message, error) {
 	// Generate a random shared key
-	key := make([]byte, utils.AES_PRIMARY_KEY_SIZE)
+	key := make([]byte, utils.AES_KEY_SIZE_BYTES)
 	if _, err := io.ReadFull(rand.Reader, key); err != nil {
 		return nil, err
 	}
@@ -121,28 +164,16 @@ func CreateMessage(sender *rsa.PrivateKey, recipients []*rsa.PublicKey, referenc
 	}
 
 	// Encrypt payload
-	encryptedPayload := gcm.Seal(nonce, nonce, payload, nil)
+	encryptedPayload := append(nonce, gcm.Seal(nil, nonce, payload, nil)...)
 
 	// Hash encrypted payload
 	hashed := utils.Hash(encryptedPayload)
 
 	// Sign hash of encrypted payload
-	var options rsa.PSSOptions
-	options.SaltLength = rsa.PSSSaltLengthAuto
-	signature, err := rsa.SignPSS(rand.Reader, sender, crypto.SHA512, hashed, &options)
+	signature, err := CreateSignature(sender, hashed)
 	if err != nil {
 		return nil, err
 	}
-
-	/*
-	Verify Signature
-	var options rsa.PSSOptions
-	options.SaltLength = rsa.PSSSaltLengthAuto
-	err = rsa.VerifyPSS(&priv.PublicKey, crypto.SHA512, hashed[:], signature, &options)
-	if err != nil {
-		return nil, err
-	}
-	*/
 
 	// Grant access to each recipient
 	recs := make([]*Message_Access, len(recipients))
@@ -151,12 +182,13 @@ func CreateMessage(sender *rsa.PrivateKey, recipients []*rsa.PublicKey, referenc
 		if err != nil {
 			return nil, err
 		}
+		publicKeyHash := utils.Hash(publicKeyBytes)
 		secretKey, err := rsa.EncryptOAEP(sha512.New(), rand.Reader, k, key, nil)
 		if err != nil {
 			return nil, err
 		}
 		recs[i] = &Message_Access{
-			PublicKeyHash: utils.Hash(publicKeyBytes),
+			PublicKeyHash: publicKeyHash,
 			SecretKey:     secretKey,
 		}
 	}
@@ -175,4 +207,127 @@ func CreateMessage(sender *rsa.PrivateKey, recipients []*rsa.PublicKey, referenc
 		Signature:     signature,
 		Reference:     references,
 	}, nil
+}
+
+func CreateSignature(privateKey *rsa.PrivateKey, data []byte) ([]byte, error) {
+	var options rsa.PSSOptions
+	options.SaltLength = rsa.PSSSaltLengthAuto
+	return rsa.SignPSS(rand.Reader, privateKey, crypto.SHA512, data, &options)
+}
+
+func VerifySignature(publicKey *rsa.PublicKey, data, signature []byte) error {
+	var options rsa.PSSOptions
+	options.SaltLength = rsa.PSSSaltLengthAuto
+	err := rsa.VerifyPSS(publicKey, crypto.SHA512, data, signature, &options)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReadBlockFile(directory string, hash []byte) (*Block, error) {
+	// Read from file
+	data, err := ioutil.ReadFile(path.Join(directory, "block", base64.RawURLEncoding.EncodeToString(hash)))
+	if err != nil {
+		return nil, err
+	}
+	// Unmarshal into block
+	block := &Block{}
+	if err = proto.Unmarshal(data[:], block); err != nil {
+		return nil, err
+	}
+	return block, err
+}
+
+func ReadHeadFile(directory, channel string) (*Reference, error) {
+	// Read from file
+	data, err := ioutil.ReadFile(path.Join(directory, "channel", base64.RawURLEncoding.EncodeToString([]byte(channel))))
+	if err != nil {
+		return nil, err
+	}
+	// Unmarshal into reference
+	reference := &Reference{}
+	if err = proto.Unmarshal(data[:], reference); err != nil {
+		return nil, err
+	}
+	return reference, err
+}
+
+func ReadReference(reader io.Reader) (*Reference, error) {
+	var data [1024]byte
+	n, err := reader.Read(data[:])
+	if err != nil {
+		return nil, err
+	}
+	if n <= 0 {
+		return nil, errors.New("Could not read data")
+	}
+	size, s := proto.DecodeVarint(data[:])
+	if s <= 0 {
+		return nil, errors.New("Could not read size")
+	}
+	e := uint64(s) + size
+
+	// Unmarshal as Reference
+	request := &Reference{}
+	if err = proto.Unmarshal(data[s:e], request); err != nil {
+		return nil, err
+	}
+	return request, nil
+}
+
+func WriteBlock(writer io.Writer, block *Block) error {
+	// Marshal to byte array
+	data, err := proto.Marshal(block)
+	if err != nil {
+		return err
+	}
+	size := uint64(len(data))
+	// Write block size varint
+	if _, err := writer.Write(proto.EncodeVarint(size)); err != nil {
+		return err
+	}
+	// Write block data
+	if _, err := writer.Write(data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func WriteBlockFile(directory string, hash []byte, block *Block) error {
+	// Marshal into byte array
+	data, err := proto.Marshal(block)
+	if err != nil {
+		return err
+	}
+	// Write to file
+	return ioutil.WriteFile(path.Join(directory, "block", base64.RawURLEncoding.EncodeToString(hash)), data, 0600)
+}
+
+func WriteHeadFile(directory, channel string, reference *Reference) error {
+	// Marshal into byte array
+	data, err := proto.Marshal(reference)
+	if err != nil {
+		return err
+	}
+	// Write to file
+	return ioutil.WriteFile(path.Join(directory, "channel", base64.RawURLEncoding.EncodeToString([]byte(channel))), data, 0600)
+}
+
+func WriteReference(writer io.Writer, reference *Reference) error {
+	// Marshal to byte array
+	data, err := proto.Marshal(reference)
+	if err != nil {
+		return err
+	}
+	size := uint64(len(data))
+	// Write reference size varint
+	if _, err := writer.Write(proto.EncodeVarint(size)); err != nil {
+		return err
+	}
+	// Write reference data
+	if _, err := writer.Write(data); err != nil {
+		return err
+	}
+	return nil
 }
