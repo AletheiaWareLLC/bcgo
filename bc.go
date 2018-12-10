@@ -17,6 +17,7 @@
 package bcgo
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -79,6 +80,70 @@ func (c *Channel) LoadHead() error {
 		return err
 	}
 	c.Head = block
+	return nil
+}
+
+func (c *Channel) Read(keys *rsa.PrivateKey, callback func([]byte)) error {
+	// Decrypt each message in chain and pass to the given callback
+	publicKeyBytes, err := utils.RSAPublicKeyToBytes(&keys.PublicKey)
+	if err != nil {
+		return err
+	}
+	access := utils.Hash(publicKeyBytes)
+	log.Println("Reading", c.Name, "for", access)
+	b := c.Head
+	for b != nil {
+		for _, e := range b.Entry {
+			m := e.Message
+			for _, a := range m.Recipient {
+				if bytes.Equal(a.PublicKeyHash, access) {
+					// Decrypt each message in separate goroutine
+					go func() {
+						// Decrypt a shared key
+						decryptedKey, err := rsa.DecryptOAEP(sha512.New(), rand.Reader, keys, a.SecretKey, nil)
+
+						// Create cipher
+						c, err := aes.NewCipher(decryptedKey)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+
+						// Create galois counter mode
+						gcm, err := cipher.NewGCM(c)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+
+						// Get nonce
+						nonce := m.Payload[:gcm.NonceSize()]
+						// Get payload
+						payload := m.Payload[gcm.NonceSize():]
+
+						// Decrypt payload
+						decryptedPayload, err := gcm.Open(nil, nonce, payload, nil)
+						if err != nil {
+							log.Println(err)
+							return
+						}
+
+						// Call callback
+						callback(decryptedPayload)
+					}()
+				}
+			}
+		}
+		h := b.Previous
+		if h != nil && len(h) > 0 {
+			b, err = ReadBlockFile(c.Cache, h)
+			if err != nil {
+				return err
+			}
+		} else {
+			b = nil
+		}
+	}
 	return nil
 }
 
