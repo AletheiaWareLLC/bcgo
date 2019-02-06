@@ -41,13 +41,14 @@ const (
 	PORT_HEAD  = 22322
 )
 
+var Channels map[string]*Channel
+
 type Channel struct {
 	Name      string
 	Threshold uint64
 	HeadHash  []byte
 	HeadBlock *Block
 	Cache     string
-	Hosts     []string
 }
 
 func (c *Channel) Update(hash []byte, block *Block) error {
@@ -116,6 +117,7 @@ func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, cal
 }
 
 func (c *Channel) Sync() error {
+	log.Println("Syncing", c.Name)
 	head, err := GetHead(c.Name)
 	if err != nil {
 		return err
@@ -169,20 +171,30 @@ func GetHead(channel string) (*Reference, error) {
 		return nil, err
 	}
 	for _, host := range hosts {
-		connection, err := net.Dial("tcp", host+":"+strconv.Itoa(PORT_HEAD))
-		if err != nil {
-			return nil, err
+		if len(host) > 0 {
+			address := host + ":" + strconv.Itoa(PORT_HEAD)
+			connection, err := net.Dial("tcp", address)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			defer connection.Close()
+			reader := bufio.NewReader(connection)
+			writer := bufio.NewWriter(connection)
+			if err := WriteReference(writer, &Reference{
+				ChannelName: channel,
+			}); err != nil {
+				log.Println(err)
+				continue
+			}
+			reference, err := ReadReference(reader)
+			if err != nil {
+				log.Println(err)
+				continue
+			} else {
+				return reference, nil
+			}
 		}
-		defer connection.Close()
-		reader := bufio.NewReader(connection)
-		writer := bufio.NewWriter(connection)
-		reference := &Reference{
-			ChannelName: channel,
-		}
-		if err := WriteReference(writer, reference); err != nil {
-			return nil, err
-		}
-		return ReadReference(reader)
 	}
 	return nil, errors.New("Couldn't get head from hosts")
 }
@@ -193,38 +205,55 @@ func GetBlock(reference *Reference) (*Block, error) {
 		return nil, err
 	}
 	for _, host := range hosts {
-		connection, err := net.Dial("tcp", host+":"+strconv.Itoa(PORT_BLOCK))
-		if err != nil {
-			return nil, err
+		if len(host) > 0 {
+			address := host + ":" + strconv.Itoa(PORT_BLOCK)
+			connection, err := net.Dial("tcp", address)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			defer connection.Close()
+			reader := bufio.NewReader(connection)
+			writer := bufio.NewWriter(connection)
+			if err := WriteReference(writer, reference); err != nil {
+				log.Println(err)
+				continue
+			}
+			block, err := ReadBlock(reader)
+			if err != nil {
+				log.Println(err)
+				continue
+			} else {
+				return block, nil
+			}
 		}
-		defer connection.Close()
-		reader := bufio.NewReader(connection)
-		writer := bufio.NewWriter(connection)
-		if err := WriteReference(writer, reference); err != nil {
-			return nil, err
-		}
-		return ReadBlock(reader)
 	}
 	return nil, errors.New("Couldn't get block from hosts")
 }
 
 func OpenChannel(name string) (*Channel, error) {
-	cache, err := GetCache()
-	if err != nil {
-		return nil, err
+	if Channels == nil {
+		Channels = make(map[string]*Channel)
 	}
-	hosts, err := GetHosts()
-	if err != nil {
-		return nil, err
+	channel, ok := Channels[name]
+	if !ok {
+		cache, err := GetCache()
+		if err != nil {
+			return nil, err
+		}
+		channel = &Channel{
+			Name:      name,
+			Threshold: THRESHOLD_STANDARD,
+			Cache:     cache,
+		}
+		Channels[name] = channel
+		if err := channel.LoadHead(); err != nil {
+			log.Println(err)
+		}
 	}
-	channel := &Channel{
-		Name:      name,
-		Threshold: THRESHOLD_STANDARD,
-		Cache:     cache,
-		Hosts:     hosts,
+	if err := channel.Sync(); err != nil {
+		log.Println(err)
 	}
-	channel.LoadHead()
-	go channel.Sync()
 	return channel, nil
 }
 
