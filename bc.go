@@ -274,7 +274,37 @@ func GetNode() (*Node, error) {
 	}, nil
 }
 
-func (n *Node) Mine(channel *Channel, entries []*BlockEntry) ([]byte, *Block, error) {
+func (n *Node) Mine(channel *Channel, acl map[string]*rsa.PublicKey, data []byte) (*Reference, error) {
+	record, err := CreateRecord(n.Alias, n.Key, acl, nil, data)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err = proto.Marshal(record)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := [1]*BlockEntry{
+		&BlockEntry{
+			RecordHash: Hash(data),
+			Record:     record,
+		},
+	}
+
+	hash, block, err := n.MineRecords(channel, entries[:])
+	if err != nil {
+		return nil, err
+	}
+	n.Multicast(channel, hash, block)
+	return &Reference{
+		Timestamp:   block.Timestamp,
+		ChannelName: channel.Name,
+		BlockHash:   hash,
+	}, nil
+}
+
+func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Block, error) {
 	block := &Block{
 		Timestamp:   uint64(time.Now().UnixNano()),
 		ChannelName: channel.Name,
