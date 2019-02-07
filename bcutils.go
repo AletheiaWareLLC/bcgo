@@ -36,6 +36,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/bits"
+	"net/http"
 	"os"
 	"os/user"
 	"path"
@@ -65,15 +66,11 @@ func Ones(data []byte) uint64 {
 	return count
 }
 
-func RSAPublicKeyToBase64(publicKey *rsa.PublicKey) (string, error) {
-	pub, err := RSAPublicKeyToBytes(publicKey)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(pub), nil
+func RSAPublicKeyToPKCS1Bytes(publicKey *rsa.PublicKey) []byte {
+	return x509.MarshalPKCS1PublicKey(publicKey)
 }
 
-func RSAPublicKeyToBytes(publicKey *rsa.PublicKey) ([]byte, error) {
+func RSAPublicKeyToPKIXBytes(publicKey *rsa.PublicKey) ([]byte, error) {
 	bytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
 		return nil, err
@@ -81,21 +78,24 @@ func RSAPublicKeyToBytes(publicKey *rsa.PublicKey) ([]byte, error) {
 	return bytes, nil
 }
 
-func RSAPublicKeyFromBase64(publicKey string) (*rsa.PublicKey, error) {
-	data, err := base64.RawURLEncoding.DecodeString(publicKey)
+func RSAPublicKeyFromPKCS1Bytes(data []byte) (*rsa.PublicKey, error) {
+	pub, err := x509.ParsePKCS1PublicKey(data)
 	if err != nil {
 		return nil, err
 	}
-	return RSAPublicKeyFromBytes(data)
+	return PublicKeyToRSAPublicKey(pub)
 }
 
-func RSAPublicKeyFromBytes(data []byte) (*rsa.PublicKey, error) {
+func RSAPublicKeyFromPKIXBytes(data []byte) (*rsa.PublicKey, error) {
 	pub, err := x509.ParsePKIXPublicKey(data)
 	if err != nil {
 		return nil, err
 	}
+	return PublicKeyToRSAPublicKey(pub)
+}
 
-	switch k := pub.(type) {
+func PublicKeyToRSAPublicKey(key interface{}) (*rsa.PublicKey, error) {
+	switch k := key.(type) {
 	case *rsa.PublicKey:
 		return k, nil
 	default:
@@ -117,6 +117,43 @@ func RSAPublicKeyToPEM(publicKey *rsa.PublicKey) (*pem.Block, error) {
 	}, nil
 }
 
+func RSAPrivateKeyToPKCS1Bytes(privateKey *rsa.PrivateKey) []byte {
+	return x509.MarshalPKCS1PrivateKey(privateKey)
+}
+
+func RSAPrivateKeyToPKCS8Bytes(privateKey *rsa.PrivateKey) ([]byte, error) {
+	bytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+func RSAPrivateKeyFromPKCS1Bytes(data []byte) (*rsa.PrivateKey, error) {
+	priv, err := x509.ParsePKCS1PrivateKey(data)
+	if err != nil {
+		return nil, err
+	}
+	return PrivateKeyToRSAPrivateKey(priv)
+}
+
+func RSAPrivateKeyFromPKCS8Bytes(data []byte) (*rsa.PrivateKey, error) {
+	priv, err := x509.ParsePKCS8PrivateKey(data)
+	if err != nil {
+		return nil, err
+	}
+	return PrivateKeyToRSAPrivateKey(priv)
+}
+
+func PrivateKeyToRSAPrivateKey(key interface{}) (*rsa.PrivateKey, error) {
+	switch k := key.(type) {
+	case *rsa.PrivateKey:
+		return k, nil
+	default:
+		return nil, errors.New("Unsupported private key type")
+	}
+}
+
 func RSAPrivateKeyToPEM(privateKey *rsa.PrivateKey, password []byte) (*pem.Block, error) {
 	// Create encrypted PEM block with private key marshalled into PKCS8
 	data, err := x509.MarshalPKCS8PrivateKey(privateKey)
@@ -129,13 +166,11 @@ func RSAPrivateKeyToPEM(privateKey *rsa.PrivateKey, password []byte) (*pem.Block
 func ParseRSAPublicKey(publicKey []byte, format PublicKeyFormat) (*rsa.PublicKey, error) {
 	switch format {
 	case PublicKeyFormat_PKCS1_PUBLIC:
-		// TODO
-		return nil, errors.New("PKCS1 public key format not yet implemented")
+		return RSAPublicKeyFromPKCS1Bytes(publicKey)
 	case PublicKeyFormat_PKIX:
-		return RSAPublicKeyFromBytes(publicKey)
+		fallthrough
 	case PublicKeyFormat_X509:
-		// TODO
-		return nil, errors.New("X509 public key format not yet implemented")
+		return RSAPublicKeyFromPKIXBytes(publicKey)
 	case PublicKeyFormat_UNKNOWN_PUBLIC_KEY_FORMAT:
 		fallthrough
 	default:
@@ -146,19 +181,9 @@ func ParseRSAPublicKey(publicKey []byte, format PublicKeyFormat) (*rsa.PublicKey
 func ParseRSAPrivateKey(privateKey []byte, format PrivateKeyFormat) (*rsa.PrivateKey, error) {
 	switch format {
 	case PrivateKeyFormat_PKCS1_PRIVATE:
-		// TODO
-		return nil, errors.New("PKCS1 private key format not yet implemented")
+		return RSAPrivateKeyFromPKCS1Bytes(privateKey)
 	case PrivateKeyFormat_PKCS8:
-		priv, err := x509.ParsePKCS8PrivateKey(privateKey)
-		if err != nil {
-			return nil, err
-		}
-		switch k := priv.(type) {
-		case *rsa.PrivateKey:
-			return k, nil
-		default:
-			return nil, errors.New("Unsupported private key type")
-		}
+		return RSAPrivateKeyFromPKCS8Bytes(privateKey)
 	case PrivateKeyFormat_UNKNOWN_PRIVATE_KEY_FORMAT:
 		fallthrough
 	default:
@@ -167,7 +192,7 @@ func ParseRSAPrivateKey(privateKey []byte, format PrivateKeyFormat) (*rsa.Privat
 }
 
 func HasRSAPrivateKey(directory, alias string) bool {
-	_, err := os.Stat(path.Join(directory, alias+".priv"))
+	_, err := os.Stat(path.Join(directory, alias+".go.private"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false
@@ -204,7 +229,7 @@ func WriteRSAPrivateKey(privateKey *rsa.PrivateKey, directory, alias string, pas
 	}
 
 	// Write Private Key PEM block to file
-	if err := WritePEM(privateKeyPEM, path.Join(directory, alias+".priv")); err != nil {
+	if err := WritePEM(privateKeyPEM, path.Join(directory, alias+".go.private")); err != nil {
 		return err
 	}
 
@@ -212,7 +237,7 @@ func WriteRSAPrivateKey(privateKey *rsa.PrivateKey, directory, alias string, pas
 }
 
 func GetRSAPrivateKey(directory, alias string, password []byte) (*rsa.PrivateKey, error) {
-	privateKeyPEM, err := ReadPEM(path.Join(directory, alias+".priv"))
+	privateKeyPEM, err := ReadPEM(path.Join(directory, alias+".go.private"))
 	if err != nil {
 		return nil, err
 	}
@@ -310,11 +335,7 @@ func GetOrCreateRSAPrivateKey() (string, *rsa.PrivateKey, error) {
 			return "", nil, err
 		}
 
-		publicKeyBase64, err := RSAPublicKeyToBase64(&key.PublicKey)
-		if err != nil {
-			return "", nil, err
-		}
-		log.Printf("Successfully created key pair, visit %s/register and register your public key;\n%s\n\n", BC_HOST, publicKeyBase64)
+		log.Printf("Successfully created key pair")
 		return alias, key, nil
 	}
 }
@@ -526,6 +547,21 @@ func VerifySignature(publicKey *rsa.PublicKey, data, signature []byte, algorithm
 	default:
 		return errors.New("Unknown Signature")
 	}
+}
+
+func GetAndPrintURL(url string) {
+	response, err := http.Get(url)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println(response)
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	log.Println(string(data))
 }
 
 func PrintBlock(hash []byte, block *Block) {
