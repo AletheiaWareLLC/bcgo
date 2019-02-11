@@ -186,6 +186,7 @@ func (c *Channel) Iterate(callback func([]byte, *Block) error) error {
 }
 
 func (c *Channel) Sync() error {
+	log.Println("Syncing", c.Name)
 	reference, err := c.GetRemoteHead()
 	if err != nil {
 		return err
@@ -295,20 +296,20 @@ func (c *Channel) Multicast(hash []byte, block *Block) error {
 				return err
 			}
 			reader := bufio.NewReader(connection)
-			b, err := ReadBlock(reader)
+			reference, err := ReadReference(reader)
 			if err != nil {
-				if err == os.EOF {
-					// Expected
-				} else {
-					return err
-				}
+				return err
+			}
+			// Multicast received, reference holds remote channel current head
+			if bytes.Equal(hash, reference.BlockHash) {
+				// Multicast accepted
 			} else {
-				data, err := proto.Marshal(block)
+				// Multicast rejected
+				block, err := c.GetBlock(reference.BlockHash)
 				if err != nil {
 					return err
 				}
-				hash := Hash(data)
-				if err := c.Update(b); err != nil {
+				if err := c.Update(reference.BlockHash, block); err != nil {
 					return err
 				}
 			}
