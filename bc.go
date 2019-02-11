@@ -37,8 +37,12 @@ const (
 	THRESHOLD_PVB_DAY  = 320 // 5/8
 	THRESHOLD_PVB_YEAR = 384 // 3/4
 
-	PORT_BLOCK = 22222
-	PORT_HEAD  = 22322
+	PORT_BLOCK     = 22222
+	PORT_HEAD      = 22322
+	PORT_MULTICAST = 23232
+
+	MAX_BLOCK_SIZE_BYTES   = 2e9 // 2Gb
+	MAX_PAYLOAD_SIZE_BYTES = 5e7 // 50Mb
 )
 
 var Channels map[string]*Channel
@@ -49,6 +53,7 @@ type Channel struct {
 	HeadHash  []byte
 	HeadBlock *Block
 	Cache     string
+	Peers     []string
 }
 
 func (c *Channel) Update(hash []byte, block *Block) error {
@@ -78,7 +83,7 @@ func (c *Channel) LoadHead() error {
 		return err
 	}
 	c.HeadHash = head.BlockHash
-	block, err := ReadBlockFile(c.Cache, head.BlockHash)
+	block, err := c.GetBlock(head.BlockHash)
 	if err != nil {
 		return err
 	}
@@ -86,15 +91,67 @@ func (c *Channel) LoadHead() error {
 	return nil
 }
 
-func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte)) error {
-	// Decrypt each record in chain and pass to the given callback
-	log.Println("Reading", c.Name, "for", alias)
-	b := c.HeadBlock
-	for b != nil {
+func (c *Channel) GetHead() ([]byte, error) {
+	if c.HeadHash == nil {
+		if err := c.LoadHead(); err != nil {
+			return nil, err
+		}
+	}
+	if c.HeadHash == nil {
+		reference, err := c.GetRemoteHead()
+		if err != nil {
+			return nil, err
+		}
+		c.HeadHash = reference.BlockHash
+	}
+	return c.HeadHash, nil
+}
+
+func (c *Channel) GetBlock(hash []byte) (*Block, error) {
+	b, err := ReadBlockFile(c.Cache, hash)
+	if err != nil {
+		log.Println(err)
+		b, err = c.GetRemoteBlock(&Reference{
+			ChannelName: c.Name,
+			BlockHash:   hash,
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = WriteBlockFile(c.Cache, hash, b)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return b, nil
+}
+
+func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
+	return c.Iterate(func(h []byte, b *Block) error {
 		for _, e := range b.Entry {
 			if recordHash == nil || bytes.Equal(recordHash, e.RecordHash) {
 				for _, a := range e.Record.Access {
-					if a.Alias == alias {
+					if alias == a.Alias {
+						decryptedKey, err := DecryptKey(a, key)
+						if err != nil {
+							log.Println(err)
+						}
+						return callback(decryptedKey)
+					}
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
+	log.Println("Reading", c.Name, "for", alias)
+	return c.Iterate(func(h []byte, b *Block) error {
+		for _, e := range b.Entry {
+			if recordHash == nil || bytes.Equal(recordHash, e.RecordHash) {
+				for _, a := range e.Record.Access {
+					if alias == a.Alias {
 						if err := DecryptRecord(e, a, key, callback); err != nil {
 							log.Println(err)
 						}
@@ -102,12 +159,24 @@ func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, cal
 				}
 			}
 		}
-		h := b.Previous
+		return nil
+	})
+}
+
+func (c *Channel) Iterate(callback func([]byte, *Block) error) error {
+	// Decrypt each record in chain and pass to the given callback
+	h := c.HeadHash
+	b := c.HeadBlock
+	for b != nil {
+		if err := callback(h, b); err != nil {
+			return err
+		}
+		h = b.Previous
 		if h != nil && len(h) > 0 {
 			var err error
-			b, err = ReadBlockFile(c.Cache, h)
+			b, err = c.GetBlock(h)
 			if err != nil {
-				return err
+				return nil
 			}
 		} else {
 			b = nil
@@ -117,62 +186,44 @@ func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, cal
 }
 
 func (c *Channel) Sync() error {
-	log.Println("Syncing", c.Name)
-	head, err := GetHead(c.Name)
+	reference, err := c.GetRemoteHead()
 	if err != nil {
 		return err
 	}
-	hash := head.BlockHash
-	if !bytes.Equal(c.HeadHash, hash) {
-		// Load head block
-		block, err := ReadBlockFile(c.Cache, hash)
-		if err != nil {
-			log.Println(err)
-			block, err = GetBlock(head)
+	head := reference.BlockHash
+	if bytes.Equal(c.HeadHash, head) {
+		// Channel up-to-date
+		return nil
+	}
+	// Load head block
+	block, err := c.GetBlock(head)
+	if err != nil {
+		return err
+	}
+	// Ensure all previous blocks are loaded
+	b := block
+	for b != nil {
+		hash := b.Previous
+		if hash != nil && len(hash) > 0 {
+			var err error
+			b, err = c.GetBlock(hash)
 			if err != nil {
 				return err
 			}
+		} else {
+			b = nil
 		}
-		// Ensure all previous blocks are loaded
-		b := block
-		for b != nil {
-			h := b.Previous
-			if h != nil && len(h) > 0 {
-				var err error
-				b, err = ReadBlockFile(c.Cache, h)
-				if err != nil {
-					log.Println(err)
-					b, err = GetBlock(&Reference{
-						ChannelName: c.Name,
-						BlockHash:   h,
-					})
-					if err != nil {
-						return err
-					}
-					err = WriteBlockFile(c.Cache, h, b)
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				b = nil
-			}
-		}
-		if err := c.Update(hash, block); err != nil {
-			return err
-		}
+	}
+	if err := c.Update(head, block); err != nil {
+		return err
 	}
 	return nil
 }
 
-func GetHead(channel string) (*Reference, error) {
-	hosts, err := GetHosts()
-	if err != nil {
-		return nil, err
-	}
-	for _, host := range hosts {
-		if len(host) > 0 {
-			address := host + ":" + strconv.Itoa(PORT_HEAD)
+func (c *Channel) GetRemoteHead() (*Reference, error) {
+	for _, peer := range c.Peers {
+		if len(peer) > 0 {
+			address := peer + ":" + strconv.Itoa(PORT_HEAD)
 			connection, err := net.Dial("tcp", address)
 			if err != nil {
 				log.Println(err)
@@ -182,7 +233,7 @@ func GetHead(channel string) (*Reference, error) {
 			reader := bufio.NewReader(connection)
 			writer := bufio.NewWriter(connection)
 			if err := WriteReference(writer, &Reference{
-				ChannelName: channel,
+				ChannelName: c.Name,
 			}); err != nil {
 				log.Println(err)
 				continue
@@ -192,21 +243,18 @@ func GetHead(channel string) (*Reference, error) {
 				log.Println(err)
 				continue
 			} else {
+				log.Println("Got", c.Name, "head", base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
 				return reference, nil
 			}
 		}
 	}
-	return nil, errors.New("Couldn't get head from hosts")
+	return nil, errors.New("Couldn't get head from peers")
 }
 
-func GetBlock(reference *Reference) (*Block, error) {
-	hosts, err := GetHosts()
-	if err != nil {
-		return nil, err
-	}
-	for _, host := range hosts {
-		if len(host) > 0 {
-			address := host + ":" + strconv.Itoa(PORT_BLOCK)
+func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
+	for _, peer := range c.Peers {
+		if len(peer) > 0 {
+			address := peer + ":" + strconv.Itoa(PORT_BLOCK)
 			connection, err := net.Dial("tcp", address)
 			if err != nil {
 				log.Println(err)
@@ -224,11 +272,49 @@ func GetBlock(reference *Reference) (*Block, error) {
 				log.Println(err)
 				continue
 			} else {
+				log.Println("Got", reference.ChannelName, "block", base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
 				return block, nil
 			}
 		}
 	}
-	return nil, errors.New("Couldn't get block from hosts")
+	return nil, errors.New("Couldn't get block from peers")
+}
+
+func (c *Channel) Multicast(hash []byte, block *Block) error {
+	log.Println("Multicasting", c.Name, base64.RawURLEncoding.EncodeToString(hash))
+	for _, peer := range c.Peers {
+		if len(peer) > 0 {
+			address := peer + ":" + strconv.Itoa(PORT_MULTICAST)
+			connection, err := net.Dial("tcp", address)
+			if err != nil {
+				return err
+			}
+			defer connection.Close()
+			writer := bufio.NewWriter(connection)
+			if err := WriteBlock(writer, block); err != nil {
+				return err
+			}
+			reader := bufio.NewReader(connection)
+			b, err := ReadBlock(reader)
+			if err != nil {
+				if err == os.EOF {
+					// Expected
+				} else {
+					return err
+				}
+			} else {
+				data, err := proto.Marshal(block)
+				if err != nil {
+					return err
+				}
+				hash := Hash(data)
+				if err := c.Update(b); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func OpenChannel(name string) (*Channel, error) {
@@ -241,18 +327,23 @@ func OpenChannel(name string) (*Channel, error) {
 		if err != nil {
 			return nil, err
 		}
+		peers, err := GetPeers(name)
+		if err != nil {
+			return nil, err
+		}
 		channel = &Channel{
 			Name:      name,
 			Threshold: THRESHOLD_STANDARD,
 			Cache:     cache,
+			Peers:     peers,
 		}
 		Channels[name] = channel
 		if err := channel.LoadHead(); err != nil {
 			log.Println(err)
 		}
-	}
-	if err := channel.Sync(); err != nil {
-		log.Println(err)
+		if err := channel.Sync(); err != nil {
+			log.Println(err)
+		}
 	}
 	return channel, nil
 }
@@ -274,33 +365,34 @@ func GetNode() (*Node, error) {
 	}, nil
 }
 
-func (n *Node) Mine(channel *Channel, acl map[string]*rsa.PublicKey, data []byte) (*Reference, error) {
-	record, err := CreateRecord(n.Alias, n.Key, acl, nil, data)
+func (n *Node) Mine(channel *Channel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
+	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
 	if err != nil {
 		return nil, err
 	}
+	return n.MineRecord(channel, record)
+}
 
-	data, err = proto.Marshal(record)
+func (n *Node) MineRecord(channel *Channel, record *Record) (*Reference, error) {
+	data, err := proto.Marshal(record)
 	if err != nil {
 		return nil, err
 	}
+	recordHash := Hash(data)
+	entries := []*BlockEntry{&BlockEntry{
+		RecordHash: recordHash,
+		Record:     record,
+	}}
 
-	entries := [1]*BlockEntry{
-		&BlockEntry{
-			RecordHash: Hash(data),
-			Record:     record,
-		},
-	}
-
-	hash, block, err := n.MineRecords(channel, entries[:])
+	blockHash, block, err := n.MineRecords(channel, entries[:])
 	if err != nil {
 		return nil, err
 	}
-	n.Multicast(channel, hash, block)
 	return &Reference{
 		Timestamp:   block.Timestamp,
 		ChannelName: channel.Name,
-		BlockHash:   hash,
+		BlockHash:   blockHash,
+		RecordHash:  recordHash,
 	}, nil
 }
 
@@ -313,17 +405,18 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 		Entry:       entries,
 	}
 
-	previous := channel.HeadBlock
-	if previous != nil {
-		block.Length = previous.Length + 1
-		data, err := proto.Marshal(previous)
-		if err != nil {
-			return nil, nil, err
-		}
-		block.Previous = Hash(data)
+	previousHash := channel.HeadHash
+	previousBlock := channel.HeadBlock
+	if previousHash != nil && previousBlock != nil {
+		block.Length = previousBlock.Length + 1
+		block.Previous = previousHash
 	}
 
-	log.Println("Mining", channel.Name, proto.Size(block))
+	size := proto.Size(block)
+	if size > MAX_BLOCK_SIZE_BYTES {
+		return nil, nil, errors.New("Block too large: " + string(size) + " max: 100Mb")
+	}
+	log.Println("Mining", channel.Name, size)
 
 	var nonce uint64
 	var max uint64
@@ -340,21 +433,17 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 			max = ones
 		}
 		if ones > channel.Threshold {
-			log.Println("Mined", channel.Name, block.Timestamp, base64.RawURLEncoding.EncodeToString(hash))
-			err := channel.Update(hash, block)
-			if err != nil {
+			log.Println("Mined", channel.Name, TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
+			if err := channel.Update(hash, block); err != nil {
 				return nil, nil, err
 			}
+			go func([]byte, *Block) {
+				if err := channel.Multicast(hash, block); err != nil {
+					log.Println("Multicast Error:", err)
+				}
+			}(hash, block)
 			return hash, block, nil
 		}
 	}
 	return nil, nil, errors.New("Nonce wrapped around before reaching threshold")
-}
-
-func (n *Node) Multicast(channel *Channel, hash []byte, block *Block) error {
-	log.Println("Channel", channel)
-	log.Println("Hash", hash)
-	log.Println("Block", block)
-	// TODO
-	return nil
 }

@@ -30,6 +30,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
@@ -64,6 +65,39 @@ func Ones(data []byte) uint64 {
 		count += uint64(bits.OnesCount(uint(x)))
 	}
 	return count
+}
+
+func SizeToString(size uint64) string {
+	if size <= 1024 {
+		return fmt.Sprintf("%dbytes", size)
+	}
+	var unit string
+	s := float64(size)
+	if s >= 1024 {
+		s = s / 1024
+		unit = "Kb"
+	}
+	if s >= 1024 {
+		s = s / 1024
+		unit = "Mb"
+	}
+	if s >= 1024 {
+		s = s / 1024
+		unit = "Gb"
+	}
+	if s >= 1024 {
+		s = s / 1024
+		unit = "Tb"
+	}
+	if s >= 1024 {
+		s = s / 1024
+		unit = "Pb"
+	}
+	return fmt.Sprintf("%.2f%s", s, unit)
+}
+
+func TimestampToString(timestamp uint64) string {
+	return time.Unix(0, int64(timestamp)).Format("2006-01-02 15:04:05")
 }
 
 func RSAPublicKeyToPKCS1Bytes(publicKey *rsa.PublicKey) []byte {
@@ -203,12 +237,12 @@ func HasRSAPrivateKey(directory, alias string) bool {
 
 func CreateRSAPrivateKey(directory, alias string, password []byte) (*rsa.PrivateKey, error) {
 	// Create directory
-	err := os.MkdirAll(directory, 0700)
+	err := os.MkdirAll(directory, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Println("Generating RSA-4096bit public/private key pair")
+	log.Println("Generating RSA-4096bit Public/private Key Pair")
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return nil, err
@@ -265,6 +299,9 @@ func GetKeyStore() (string, error) {
 		}
 		keystore = path.Join(u.HomeDir, "bc")
 	}
+	if err := os.MkdirAll(keystore, os.ModePerm); err != nil {
+		return "", err
+	}
 	return keystore, nil
 }
 
@@ -312,12 +349,10 @@ func GetOrCreateRSAPrivateKey() (string, *rsa.PrivateKey, error) {
 	} else {
 		log.Println("Creating keystore under " + keystore)
 
-		log.Print("Enter keystore password: ")
-		password, err := terminal.ReadPassword(int(syscall.Stdin))
+		password, err := GetPassword()
 		if err != nil {
 			return "", nil, err
 		}
-		log.Println()
 
 		log.Print("Confirm keystore password: ")
 		confirm, err := terminal.ReadPassword(int(syscall.Stdin))
@@ -335,13 +370,13 @@ func GetOrCreateRSAPrivateKey() (string, *rsa.PrivateKey, error) {
 			return "", nil, err
 		}
 
-		log.Printf("Successfully created key pair")
+		log.Println("Successfully Created Key Pair")
 		return alias, key, nil
 	}
 }
 
-func GetHosts() ([]string, error) {
-	env, ok := os.LookupEnv("HOSTS")
+func GetPeers(channel string) ([]string, error) {
+	env, ok := os.LookupEnv("PEERS")
 	if ok {
 		return strings.Split(string(env), ","), nil
 	} else {
@@ -350,7 +385,11 @@ func GetHosts() ([]string, error) {
 			return nil, err
 		}
 
-		data, err := ioutil.ReadFile(path.Join(u.HomeDir, "bc/hosts"))
+		peers := path.Join(u.HomeDir, "bc/peers/")
+		if err := os.MkdirAll(peers, os.ModePerm); err != nil {
+			return nil, err
+		}
+		data, err := ioutil.ReadFile(path.Join(peers, base64.RawURLEncoding.EncodeToString([]byte(channel))))
 		if err != nil {
 			return nil, err
 		}
@@ -359,19 +398,26 @@ func GetHosts() ([]string, error) {
 	}
 }
 
-func AddHost(host string) error {
-	hosts, err := GetHosts()
-	if err != nil {
-		return err
-	}
-
+func AddPeer(channel, peer string) error {
 	u, err := user.Current()
 	if err != nil {
 		return err
 	}
-	filename := path.Join(u.HomeDir, "bc/hosts")
-	content := strings.Join(append(hosts, host), "\n")
-	ioutil.WriteFile(filename, []byte(content), 0600)
+
+	peers := path.Join(u.HomeDir, "bc/peers/")
+	if err := os.MkdirAll(peers, os.ModePerm); err != nil {
+		return err
+	}
+
+	filename := path.Join(peers, base64.RawURLEncoding.EncodeToString([]byte(channel)))
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.WriteString(peer + "\n"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -382,50 +428,100 @@ func GetCache() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		cache = path.Join(u.HomeDir, "bc")
+		cache = path.Join(u.HomeDir, "bc/cache")
+	}
+	// Create Block Cache
+	if err := os.MkdirAll(path.Join(cache, "block"), os.ModePerm); err != nil {
+		return "", err
+	}
+	// Create Channel Cache
+	if err := os.MkdirAll(path.Join(cache, "channel"), os.ModePerm); err != nil {
+		return "", err
 	}
 	return cache, nil
 }
 
-func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey, callback func(*BlockEntry, []byte)) error {
+func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey, callback func(*BlockEntry, []byte, []byte) error) error {
 	record := entry.Record
-	switch access.EncryptionAlgorithm {
-	case EncryptionAlgorithm_RSA_ECB_OAEPPADDING:
-		// Decrypt a shared key
-		decryptedKey, err := rsa.DecryptOAEP(sha512.New(), rand.Reader, key, access.SecretKey, nil)
+	decryptedKey, err := DecryptKey(access, key)
+	if err != nil {
+		return err
+	}
+	switch record.EncryptionAlgorithm {
+	case EncryptionAlgorithm_AES_GCM_NOPADDING:
+		decryptedPayload, err := DecryptAESGCM(decryptedKey, record.Payload)
 		if err != nil {
 			return err
 		}
-		switch record.EncryptionAlgorithm {
-		case EncryptionAlgorithm_AES_GCM_NOPADDING:
-			decryptedPayload, err := DecryptAESGCM(decryptedKey, record.Payload)
-			if err != nil {
-				return err
-			}
-			// Call callback
-			callback(entry, decryptedPayload)
-		case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
-			fallthrough
-		default:
-		}
+		// Call callback
+		return callback(entry, decryptedKey, decryptedPayload)
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		fallthrough
 	default:
-		// Call callback
-		callback(entry, record.Payload)
+		return errors.New("Unsupported encryption: " + record.EncryptionAlgorithm.String())
 	}
-	return nil
 }
 
-func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Record, error) {
+func DecryptKey(access *Record_Access, key *rsa.PrivateKey) ([]byte, error) {
+	switch access.EncryptionAlgorithm {
+	case EncryptionAlgorithm_RSA_ECB_OAEPPADDING:
+		// Decrypt a shared key
+		return rsa.DecryptOAEP(sha512.New(), rand.Reader, key, access.SecretKey, nil)
+	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
+		fallthrough
+	default:
+		return nil, errors.New("Unsupported encryption" + access.EncryptionAlgorithm.String())
+	}
+}
+
+func DecryptPayload(entry *BlockEntry, key []byte) ([]byte, error) {
+	switch entry.Record.EncryptionAlgorithm {
+	case EncryptionAlgorithm_AES_GCM_NOPADDING:
+		return DecryptAESGCM(key, entry.Record.Payload)
+	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
+		return entry.Record.Payload, nil
+	default:
+		return nil, errors.New("Unsupported encryption: " + entry.Record.EncryptionAlgorithm.String())
+	}
+}
+
+// Chunk the data from reader into individual records with their own secret key and access list
+func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, reader io.Reader, callback func([]byte, *Record) error) (int, error) {
+	payload := make([]byte, MAX_PAYLOAD_SIZE_BYTES)
+	size := 0
+	for {
+		count, err := reader.Read(payload)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return 0, err
+		}
+		size = size + count
+		key, record, err := CreateRecord(creatorAlias, creatorKey, access, references, payload[:count])
+		if err != nil {
+			return 0, err
+		}
+		if err := callback(key, record); err != nil {
+			return 0, err
+		}
+	}
+	return size, nil
+}
+
+func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
+	size := len(payload)
+	if size > MAX_PAYLOAD_SIZE_BYTES {
+		return nil, nil, errors.New("Payload too large: " + string(size) + " max: 1Mb")
+	}
 	key, err := GenerateRandomKey()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	encrypted, err := EncryptAESGCM(key, payload)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Hash encrypted payload
@@ -434,7 +530,7 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	// Sign hash of encrypted payload
 	signature, err := CreateSignature(creatorKey, hashed, SignatureAlgorithm_SHA512WITHRSA_PSS)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Grant access to each public key
@@ -442,7 +538,7 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	for a, k := range access {
 		secretKey, err := rsa.EncryptOAEP(sha512.New(), rand.Reader, k, key, nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		acl = append(acl, &Record_Access{
 			Alias:               a,
@@ -452,7 +548,7 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	}
 
 	// Create record
-	return &Record{
+	return key, &Record{
 		Timestamp:           uint64(time.Now().UnixNano()),
 		Creator:             creatorAlias,
 		Access:              acl,
@@ -593,8 +689,8 @@ func PrintBlock(hash []byte, block *Block) {
 			log.Println("Reference:", k)
 			log.Println("Timestamp:", reference.Timestamp)
 			log.Println("ChannelName:", reference.ChannelName)
-			log.Println("BlockHash:", reference.BlockHash)
-			log.Println("RecordHash:", reference.RecordHash)
+			log.Println("BlockHash:", base64.RawURLEncoding.EncodeToString(reference.BlockHash))
+			log.Println("RecordHash:", base64.RawURLEncoding.EncodeToString(reference.RecordHash))
 		}
 	}
 }
@@ -635,6 +731,14 @@ func ReadHeadFile(directory, channel string) (*Reference, error) {
 	return reference, err
 }
 
+func ReadRecord(reader *bufio.Reader) (*Record, error) {
+	record := &Record{}
+	if err := ReadDelimitedProtobuf(reader, record); err != nil {
+		return nil, err
+	}
+	return record, nil
+}
+
 func ReadReference(reader *bufio.Reader) (*Reference, error) {
 	reference := &Reference{}
 	if err := ReadDelimitedProtobuf(reader, reference); err != nil {
@@ -644,7 +748,7 @@ func ReadReference(reader *bufio.Reader) (*Reference, error) {
 }
 
 func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) error {
-	var data [1024]byte
+	data := make([]byte, 32)
 	n, err := reader.Read(data[:])
 	if err != nil {
 		return err
@@ -655,6 +759,9 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 	size, s := proto.DecodeVarint(data[:])
 	if s <= 0 {
 		return errors.New("Could not read size")
+	}
+	if size > MAX_BLOCK_SIZE_BYTES {
+		return errors.New(fmt.Sprintf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES))
 	}
 
 	// Create new larger buffer
@@ -692,7 +799,7 @@ func WriteBlockFile(directory string, hash []byte, block *Block) error {
 		return err
 	}
 	// Write to file
-	return ioutil.WriteFile(path.Join(directory, "block", base64.RawURLEncoding.EncodeToString(hash)), data, 0600)
+	return ioutil.WriteFile(path.Join(directory, "block", base64.RawURLEncoding.EncodeToString(hash)), data, os.ModePerm)
 }
 
 func WriteHeadFile(directory, channel string, reference *Reference) error {
@@ -702,7 +809,11 @@ func WriteHeadFile(directory, channel string, reference *Reference) error {
 		return err
 	}
 	// Write to file
-	return ioutil.WriteFile(path.Join(directory, "channel", base64.RawURLEncoding.EncodeToString([]byte(channel))), data, 0600)
+	return ioutil.WriteFile(path.Join(directory, "channel", base64.RawURLEncoding.EncodeToString([]byte(channel))), data, os.ModePerm)
+}
+
+func WriteRecord(writer *bufio.Writer, record *Record) error {
+	return WriteDelimitedProtobuf(writer, record)
 }
 
 func WriteReference(writer *bufio.Writer, reference *Reference) error {
@@ -710,13 +821,17 @@ func WriteReference(writer *bufio.Writer, reference *Reference) error {
 }
 
 func WriteDelimitedProtobuf(writer *bufio.Writer, source proto.Message) error {
+	size := proto.Size(source)
+	if size > MAX_BLOCK_SIZE_BYTES {
+		return errors.New(fmt.Sprintf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES))
+	}
+
 	data, err := proto.Marshal(source)
 	if err != nil {
 		return err
 	}
-	size := uint64(len(data))
 	// Write request size varint
-	if _, err := writer.Write(proto.EncodeVarint(size)); err != nil {
+	if _, err := writer.Write(proto.EncodeVarint(uint64(size))); err != nil {
 		return err
 	}
 	// Write request data
@@ -739,5 +854,5 @@ func ReadPEM(filename string) (*pem.Block, error) {
 }
 
 func WritePEM(key *pem.Block, filename string) error {
-	return ioutil.WriteFile(filename, pem.EncodeToMemory(key), 0600)
+	return ioutil.WriteFile(filename, pem.EncodeToMemory(key), os.ModePerm)
 }
