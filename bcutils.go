@@ -38,6 +38,7 @@ import (
 	"log"
 	"math/bits"
 	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -290,6 +291,98 @@ func GetRSAPrivateKey(directory, alias string, password []byte) (*rsa.PrivateKey
 	}
 }
 
+func ExportKeys(keystore, alias string, password []byte) (string, error) {
+	privateKey, err := GetRSAPrivateKey(keystore, alias, password)
+	if err != nil {
+		return "", err
+	}
+
+	// Generate a random access code
+	accessCode, err := GenerateRandomKey()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	encryptedPrivateKeyBytes, err := EncryptAESGCM(accessCode, data)
+	if err != nil {
+		return "", err
+	}
+	publicKeyBytes, err := RSAPublicKeyToPKIXBytes(&privateKey.PublicKey)
+	if err != nil {
+		return "", err
+	}
+	encryptedPassword, err := EncryptAESGCM(accessCode, password)
+	if err != nil {
+		return "", err
+	}
+	response, err := http.PostForm(BC_WEBSITE+"/keys", url.Values{
+		"alias":            {alias},
+		"publicKey":        {base64.RawURLEncoding.EncodeToString(publicKeyBytes)},
+		"publicKeyFormat":  {"PKIX"},
+		"privateKey":       {base64.RawURLEncoding.EncodeToString(encryptedPrivateKeyBytes)},
+		"privateKeyFormat": {"PKCS8"},
+		"password":         {base64.RawURLEncoding.EncodeToString(encryptedPassword)},
+	})
+	if err != nil {
+		return "", err
+	}
+	switch response.StatusCode {
+	case http.StatusOK:
+		log.Println("Keys exported")
+		return base64.RawURLEncoding.EncodeToString(accessCode), nil
+	default:
+		return "", errors.New("Export status: " + response.Status)
+	}
+}
+
+func ImportKeys(keystore, alias, accessCode string) error {
+	response, err := http.Get(BC_WEBSITE + "/keys?alias=" + alias)
+	if err != nil {
+		return err
+	}
+	data, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	keyShare := &KeyShare{}
+	if err = proto.Unmarshal(data, keyShare); err != nil {
+		return err
+	}
+	if keyShare.Alias != alias {
+		return errors.New("Incorrect KeyShare Alias")
+	}
+	// Decode Access Code
+	decodedAccessCode, err := base64.RawURLEncoding.DecodeString(accessCode)
+	if err != nil {
+		return err
+	}
+	// Decrypt Private Key
+	decryptedPrivateKey, err := DecryptAESGCM(decodedAccessCode, keyShare.PrivateKey)
+	if err != nil {
+		return err
+	}
+	// Parse Private Key
+	privateKey, err := ParseRSAPrivateKey(decryptedPrivateKey, keyShare.PrivateFormat)
+	if err != nil {
+		return err
+	}
+	// Decrypt Password
+	decryptedPassword, err := DecryptAESGCM(decodedAccessCode, keyShare.Password)
+	if err != nil {
+		return err
+	}
+	// Write Private Key
+	if err := WriteRSAPrivateKey(privateKey, keystore, alias, decryptedPassword); err != nil {
+		return err
+	}
+	log.Println("Keys imported")
+	return nil
+}
+
 func GetKeyStore() (string, error) {
 	keystore, ok := os.LookupEnv("KEYSTORE")
 	if !ok {
@@ -347,7 +440,7 @@ func GetOrCreateRSAPrivateKey() (string, *rsa.PrivateKey, error) {
 		}
 		return alias, key, nil
 	} else {
-		log.Println("Creating keystore under " + keystore)
+		log.Println("Creating keystore under " + keystore + " for " + alias)
 
 		password, err := GetPassword()
 		if err != nil {
@@ -375,7 +468,7 @@ func GetOrCreateRSAPrivateKey() (string, *rsa.PrivateKey, error) {
 	}
 }
 
-func GetPeers(channel string) ([]string, error) {
+func GetPeers() ([]string, error) {
 	env, ok := os.LookupEnv("PEERS")
 	if ok {
 		return strings.Split(string(env), ","), nil
@@ -385,11 +478,7 @@ func GetPeers(channel string) ([]string, error) {
 			return nil, err
 		}
 
-		peers := path.Join(u.HomeDir, "bc/peers/")
-		if err := os.MkdirAll(peers, os.ModePerm); err != nil {
-			return nil, err
-		}
-		data, err := ioutil.ReadFile(path.Join(peers, base64.RawURLEncoding.EncodeToString([]byte(channel))))
+		data, err := ioutil.ReadFile(path.Join(u.HomeDir, "bc", "peers"))
 		if err != nil {
 			return nil, err
 		}
@@ -398,19 +487,13 @@ func GetPeers(channel string) ([]string, error) {
 	}
 }
 
-func AddPeer(channel, peer string) error {
+func AddPeer(peer string) error {
 	u, err := user.Current()
 	if err != nil {
 		return err
 	}
 
-	peers := path.Join(u.HomeDir, "bc/peers/")
-	if err := os.MkdirAll(peers, os.ModePerm); err != nil {
-		return err
-	}
-
-	filename := path.Join(peers, base64.RawURLEncoding.EncodeToString([]byte(channel)))
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	file, err := os.OpenFile(path.Join(u.HomeDir, "bc", "peers"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -428,7 +511,7 @@ func GetCache() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		cache = path.Join(u.HomeDir, "bc/cache")
+		cache = path.Join(u.HomeDir, "bc", "cache")
 	}
 	// Create Block Cache
 	if err := os.MkdirAll(path.Join(cache, "block"), os.ModePerm); err != nil {
@@ -512,7 +595,7 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
 	size := len(payload)
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, nil, errors.New("Payload too large: " + string(size) + " max: 1Mb")
+		return nil, nil, errors.New("Payload too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_PAYLOAD_SIZE_BYTES)))
 	}
 	key, err := GenerateRandomKey()
 	if err != nil {

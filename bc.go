@@ -53,12 +53,11 @@ type Channel struct {
 	HeadHash  []byte
 	HeadBlock *Block
 	Cache     string
-	Peers     []string
 }
 
 func (c *Channel) Update(hash []byte, block *Block) error {
 	if bytes.Equal(c.HeadHash, hash) {
-		log.Println(c.Name, "already up to date")
+		// Channel up to date
 		return nil
 	}
 	c.HeadHash = hash
@@ -94,7 +93,7 @@ func (c *Channel) LoadHead() error {
 func (c *Channel) GetHead() ([]byte, error) {
 	if c.HeadHash == nil {
 		if err := c.LoadHead(); err != nil {
-			return nil, err
+			log.Println(err)
 		}
 	}
 	if c.HeadHash == nil {
@@ -134,7 +133,7 @@ func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, c
 					if alias == a.Alias {
 						decryptedKey, err := DecryptKey(a, key)
 						if err != nil {
-							log.Println(err)
+							return err
 						}
 						return callback(decryptedKey)
 					}
@@ -146,14 +145,13 @@ func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, c
 }
 
 func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
-	log.Println("Reading", c.Name, "for", alias)
 	return c.Iterate(func(h []byte, b *Block) error {
 		for _, e := range b.Entry {
 			if recordHash == nil || bytes.Equal(recordHash, e.RecordHash) {
 				for _, a := range e.Record.Access {
 					if alias == a.Alias {
 						if err := DecryptRecord(e, a, key, callback); err != nil {
-							log.Println(err)
+							return err
 						}
 					}
 				}
@@ -186,7 +184,6 @@ func (c *Channel) Iterate(callback func([]byte, *Block) error) error {
 }
 
 func (c *Channel) Sync() error {
-	log.Println("Syncing", c.Name)
 	reference, err := c.GetRemoteHead()
 	if err != nil {
 		return err
@@ -222,7 +219,11 @@ func (c *Channel) Sync() error {
 }
 
 func (c *Channel) GetRemoteHead() (*Reference, error) {
-	for _, peer := range c.Peers {
+	peers, err := GetPeers()
+	if err != nil {
+		return nil, err
+	}
+	for _, peer := range peers {
 		if len(peer) > 0 {
 			address := peer + ":" + strconv.Itoa(PORT_HEAD)
 			connection, err := net.Dial("tcp", address)
@@ -249,11 +250,15 @@ func (c *Channel) GetRemoteHead() (*Reference, error) {
 			}
 		}
 	}
-	return nil, errors.New("Couldn't get head from peers")
+	return nil, errors.New("Couldn't get " + c.Name + " head from peers")
 }
 
 func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
-	for _, peer := range c.Peers {
+	peers, err := GetPeers()
+	if err != nil {
+		return nil, err
+	}
+	for _, peer := range peers {
 		if len(peer) > 0 {
 			address := peer + ":" + strconv.Itoa(PORT_BLOCK)
 			connection, err := net.Dial("tcp", address)
@@ -278,12 +283,16 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 			}
 		}
 	}
-	return nil, errors.New("Couldn't get block from peers")
+	return nil, errors.New("Couldn't get " + reference.ChannelName + " block from peers")
 }
 
 func (c *Channel) Multicast(hash []byte, block *Block) error {
 	log.Println("Multicasting", c.Name, base64.RawURLEncoding.EncodeToString(hash))
-	for _, peer := range c.Peers {
+	peers, err := GetPeers()
+	if err != nil {
+		return err
+	}
+	for _, peer := range peers {
 		if len(peer) > 0 {
 			address := peer + ":" + strconv.Itoa(PORT_MULTICAST)
 			connection, err := net.Dial("tcp", address)
@@ -312,6 +321,7 @@ func (c *Channel) Multicast(hash []byte, block *Block) error {
 				if err := c.Update(reference.BlockHash, block); err != nil {
 					return err
 				}
+				return errors.New("Block Not Mined On Channel Head")
 			}
 		}
 	}
@@ -328,15 +338,10 @@ func OpenChannel(name string) (*Channel, error) {
 		if err != nil {
 			return nil, err
 		}
-		peers, err := GetPeers(name)
-		if err != nil {
-			return nil, err
-		}
 		channel = &Channel{
 			Name:      name,
 			Threshold: THRESHOLD_STANDARD,
 			Cache:     cache,
-			Peers:     peers,
 		}
 		Channels[name] = channel
 		if err := channel.LoadHead(); err != nil {
@@ -366,7 +371,14 @@ func GetNode() (*Node, error) {
 	}, nil
 }
 
+// TODO Split into:
+// Write - Create Record, Write to FileSystem
+// Mine - Load Records from FileSystem, Check Record Signature, Check Record Creator is this node, Filter out records that already appear in the chain, Mine into Channel's Blockchain
 func (n *Node) Mine(channel *Channel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
+	size := len(payload)
+	if size > MAX_PAYLOAD_SIZE_BYTES {
+		return nil, errors.New("Payload too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_PAYLOAD_SIZE_BYTES)))
+	}
 	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
 	if err != nil {
 		return nil, err
@@ -415,7 +427,7 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 
 	size := proto.Size(block)
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, errors.New("Block too large: " + string(size) + " max: 100Mb")
+		return nil, nil, errors.New("Block too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_BLOCK_SIZE_BYTES)))
 	}
 	log.Println("Mining", channel.Name, size)
 
@@ -438,11 +450,10 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 			if err := channel.Update(hash, block); err != nil {
 				return nil, nil, err
 			}
-			go func([]byte, *Block) {
-				if err := channel.Multicast(hash, block); err != nil {
-					log.Println("Multicast Error:", err)
-				}
-			}(hash, block)
+			if err := channel.Multicast(hash, block); err != nil {
+				log.Println("Multicast Error:", err)
+				// TODO re-mine all records created by this node not already mined into the Channel's Blockchain
+			}
 			return hash, block, nil
 		}
 	}
