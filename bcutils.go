@@ -593,9 +593,9 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 }
 
 func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
-	size := len(payload)
+	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, nil, errors.New("Payload too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_PAYLOAD_SIZE_BYTES)))
+		return nil, nil, errors.New("Payload too large: " + SizeToString(size) + " max: " + SizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
 	key, err := GenerateRandomKey()
 	if err != nil {
@@ -904,9 +904,9 @@ func WriteReference(writer *bufio.Writer, reference *Reference) error {
 }
 
 func WriteDelimitedProtobuf(writer *bufio.Writer, source proto.Message) error {
-	size := proto.Size(source)
+	size := uint64(proto.Size(source))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return errors.New(fmt.Sprintf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES))
+		return errors.New("Protobuf too large: " + SizeToString(size) + " max: " + SizeToString(MAX_BLOCK_SIZE_BYTES))
 	}
 
 	data, err := proto.Marshal(source)
@@ -914,7 +914,7 @@ func WriteDelimitedProtobuf(writer *bufio.Writer, source proto.Message) error {
 		return err
 	}
 	// Write request size varint
-	if _, err := writer.Write(proto.EncodeVarint(uint64(size))); err != nil {
+	if _, err := writer.Write(proto.EncodeVarint(size)); err != nil {
 		return err
 	}
 	// Write request data

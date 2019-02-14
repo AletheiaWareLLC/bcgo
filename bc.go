@@ -41,8 +41,8 @@ const (
 	PORT_HEAD      = 22322
 	PORT_MULTICAST = 23232
 
-	MAX_BLOCK_SIZE_BYTES   = 2e9 // 2Gb
-	MAX_PAYLOAD_SIZE_BYTES = 5e7 // 50Mb
+	MAX_BLOCK_SIZE_BYTES   = uint64(2 * 1024 * 1024 * 1024) // 2Gb
+	MAX_PAYLOAD_SIZE_BYTES = uint64(500 * 1024 * 1024)      // 500Mb
 )
 
 var Channels map[string]*Channel
@@ -126,31 +126,36 @@ func (c *Channel) GetBlock(hash []byte) (*Block, error) {
 }
 
 func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
-	return c.Iterate(func(h []byte, b *Block) error {
-		for _, e := range b.Entry {
-			if recordHash == nil || bytes.Equal(recordHash, e.RecordHash) {
-				for _, a := range e.Record.Access {
-					if alias == a.Alias {
-						decryptedKey, err := DecryptKey(a, key)
-						if err != nil {
-							return err
-						}
-						return callback(decryptedKey)
+	block, err := c.GetRemoteBlock(&Reference{
+		ChannelName: c.Name,
+		RecordHash:  recordHash,
+	})
+	if err != nil {
+		return err
+	}
+	for _, entry := range block.Entry {
+		if bytes.Equal(recordHash, entry.RecordHash) {
+			for _, access := range entry.Record.Access {
+				if alias == access.Alias {
+					decryptedKey, err := DecryptKey(access, key)
+					if err != nil {
+						return err
 					}
+					return callback(decryptedKey)
 				}
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
 	return c.Iterate(func(h []byte, b *Block) error {
-		for _, e := range b.Entry {
-			if recordHash == nil || bytes.Equal(recordHash, e.RecordHash) {
-				for _, a := range e.Record.Access {
-					if alias == a.Alias {
-						if err := DecryptRecord(e, a, key, callback); err != nil {
+		for _, entry := range b.Entry {
+			if recordHash == nil || bytes.Equal(recordHash, entry.RecordHash) {
+				for _, access := range entry.Record.Access {
+					if alias == access.Alias {
+						if err := DecryptRecord(entry, access, key, callback); err != nil {
 							return err
 						}
 					}
@@ -245,7 +250,6 @@ func (c *Channel) GetRemoteHead() (*Reference, error) {
 				log.Println(err)
 				continue
 			} else {
-				log.Println("Got", c.Name, "head", base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
 				return reference, nil
 			}
 		}
@@ -278,7 +282,6 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 				log.Println(err)
 				continue
 			} else {
-				log.Println("Got", reference.ChannelName, "block", base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
 				return block, nil
 			}
 		}
@@ -347,9 +350,17 @@ func OpenChannel(name string) (*Channel, error) {
 		if err := channel.LoadHead(); err != nil {
 			log.Println(err)
 		}
-		if err := channel.Sync(); err != nil {
-			log.Println(err)
-		}
+	}
+	return channel, nil
+}
+
+func OpenAndSyncChannel(name string) (*Channel, error) {
+	channel, err := OpenChannel(name)
+	if err != nil {
+		return nil, err
+	}
+	if err := channel.Sync(); err != nil {
+		log.Println(err)
 	}
 	return channel, nil
 }
@@ -375,9 +386,9 @@ func GetNode() (*Node, error) {
 // Write - Create Record, Write to FileSystem
 // Mine - Load Records from FileSystem, Check Record Signature, Check Record Creator is this node, Filter out records that already appear in the chain, Mine into Channel's Blockchain
 func (n *Node) Mine(channel *Channel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
-	size := len(payload)
+	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, errors.New("Payload too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_PAYLOAD_SIZE_BYTES)))
+		return nil, errors.New("Payload too large: " + SizeToString(size) + " max: " + SizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
 	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
 	if err != nil {
@@ -425,9 +436,9 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 		block.Previous = previousHash
 	}
 
-	size := proto.Size(block)
+	size := uint64(proto.Size(block))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, errors.New("Block too large: " + SizeToString(uint64(size)) + " max: " + SizeToString(uint64(MAX_BLOCK_SIZE_BYTES)))
+		return nil, nil, errors.New("Block too large: " + SizeToString(size) + " max: " + SizeToString(MAX_BLOCK_SIZE_BYTES))
 	}
 	log.Println("Mining", channel.Name, size)
 
