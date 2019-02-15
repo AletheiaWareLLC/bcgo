@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/golang/protobuf/proto"
+	"io"
 	"log"
 	"net"
 	"strconv"
@@ -189,6 +190,7 @@ func (c *Channel) Iterate(callback func([]byte, *Block) error) error {
 }
 
 func (c *Channel) Sync() error {
+	log.Println("Sync", c.Name)
 	reference, err := c.GetRemoteHead()
 	if err != nil {
 		return err
@@ -247,9 +249,12 @@ func (c *Channel) GetRemoteHead() (*Reference, error) {
 			}
 			reference, err := ReadReference(reader)
 			if err != nil {
-				log.Println(err)
+				if err != io.EOF {
+					log.Println(err)
+				}
 				continue
 			} else {
+				log.Println("Fetched", c.Name, "head from", peer)
 				return reference, nil
 			}
 		}
@@ -279,9 +284,16 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 			}
 			block, err := ReadBlock(reader)
 			if err != nil {
-				log.Println(err)
+				if err != io.EOF {
+					log.Println(err)
+				}
 				continue
 			} else {
+				if reference.BlockHash != nil {
+					log.Println("Fetched", c.Name, "block", base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
+				} else {
+					log.Println("Fetched", c.Name, "record", base64.RawURLEncoding.EncodeToString(reference.RecordHash), "from", peer)
+				}
 				return block, nil
 			}
 		}
@@ -290,7 +302,6 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 }
 
 func (c *Channel) Multicast(hash []byte, block *Block) error {
-	log.Println("Multicasting", c.Name, base64.RawURLEncoding.EncodeToString(hash))
 	peers, err := GetPeers()
 	if err != nil {
 		return err
@@ -315,6 +326,7 @@ func (c *Channel) Multicast(hash []byte, block *Block) error {
 			// Multicast received, reference holds remote channel current head
 			if bytes.Equal(hash, reference.BlockHash) {
 				// Multicast accepted
+				log.Println("Multicasted", c.Name, "block", base64.RawURLEncoding.EncodeToString(hash), "to", peer)
 			} else {
 				// Multicast rejected
 				block, err := c.GetBlock(reference.BlockHash)
