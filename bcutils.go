@@ -754,26 +754,26 @@ func PrintBlock(hash []byte, block *Block) {
 	log.Println("Entries:", len(block.Entry))
 	for i, entry := range block.Entry {
 		log.Println("Entry:", i)
-		log.Println("Hash:", base64.RawURLEncoding.EncodeToString(entry.RecordHash))
-		log.Println("Timestamp:", entry.Record.Timestamp)
-		log.Println("Creator:", entry.Record.Creator)
+		log.Println("\tHash:", base64.RawURLEncoding.EncodeToString(entry.RecordHash))
+		log.Println("\tTimestamp:", entry.Record.Timestamp)
+		log.Println("\tCreator:", entry.Record.Creator)
 		for j, access := range entry.Record.Access {
-			log.Println("Access:", j)
-			log.Println("Alias:", access.Alias)
-			log.Println("SecretKey:", base64.RawURLEncoding.EncodeToString(access.SecretKey))
-			log.Println("KeyEncryptionAlgorithm:", access.EncryptionAlgorithm)
+			log.Println("\tAccess:", j)
+			log.Println("\t\tAlias:", access.Alias)
+			log.Println("\t\tSecretKey:", base64.RawURLEncoding.EncodeToString(access.SecretKey))
+			log.Println("\t\tKeyEncryptionAlgorithm:", access.EncryptionAlgorithm)
 		}
-		log.Println("Payload:", base64.RawURLEncoding.EncodeToString(entry.Record.Payload))
-		log.Println("CompressionAlgorithm:", entry.Record.CompressionAlgorithm)
-		log.Println("EncryptionAlgorithm:", entry.Record.EncryptionAlgorithm)
-		log.Println("Signature:", base64.RawURLEncoding.EncodeToString(entry.Record.Signature))
-		log.Println("SignatureAlgorithm:", entry.Record.SignatureAlgorithm)
+		log.Println("\tPayload:", base64.RawURLEncoding.EncodeToString(entry.Record.Payload))
+		log.Println("\tCompressionAlgorithm:", entry.Record.CompressionAlgorithm)
+		log.Println("\tEncryptionAlgorithm:", entry.Record.EncryptionAlgorithm)
+		log.Println("\tSignature:", base64.RawURLEncoding.EncodeToString(entry.Record.Signature))
+		log.Println("\tSignatureAlgorithm:", entry.Record.SignatureAlgorithm)
 		for k, reference := range entry.Record.Reference {
-			log.Println("Reference:", k)
-			log.Println("Timestamp:", reference.Timestamp)
-			log.Println("ChannelName:", reference.ChannelName)
-			log.Println("BlockHash:", base64.RawURLEncoding.EncodeToString(reference.BlockHash))
-			log.Println("RecordHash:", base64.RawURLEncoding.EncodeToString(reference.RecordHash))
+			log.Println("\tReference:", k)
+			log.Println("\t\tTimestamp:", reference.Timestamp)
+			log.Println("\t\tChannelName:", reference.ChannelName)
+			log.Println("\t\tBlockHash:", base64.RawURLEncoding.EncodeToString(reference.BlockHash))
+			log.Println("\t\tRecordHash:", base64.RawURLEncoding.EncodeToString(reference.RecordHash))
 		}
 	}
 }

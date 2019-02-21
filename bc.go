@@ -38,12 +38,12 @@ const (
 	THRESHOLD_PVB_DAY  = 320 // 5/8
 	THRESHOLD_PVB_YEAR = 384 // 3/4
 
-	PORT_BLOCK     = 22222
-	PORT_HEAD      = 22322
-	PORT_MULTICAST = 23232
+	PORT_BLOCK = 22222
+	PORT_HEAD  = 22322
+	PORT_CAST  = 23232
 
 	MAX_BLOCK_SIZE_BYTES   = uint64(2 * 1024 * 1024 * 1024) // 2Gb
-	MAX_PAYLOAD_SIZE_BYTES = uint64(500 * 1024 * 1024)      // 500Mb
+	MAX_PAYLOAD_SIZE_BYTES = uint64(10 * 1024 * 1024)       // 10Mb
 )
 
 var Channels map[string]*Channel
@@ -61,9 +61,17 @@ func (c *Channel) Update(hash []byte, block *Block) error {
 		// Channel up to date
 		return nil
 	}
-	c.HeadHash = hash
+	// Check hash ones pass threshold
+	ones := Ones(hash)
+	if ones < c.Threshold {
+		return errors.New("Hash doesn't meet Proof-of-Work threshold: " + string(ones) + " vs " + string(c.Threshold))
+	}
+	// Check block chain is longer than current head
+	if c.HeadBlock != nil && c.HeadBlock.Length >= block.Length {
+		return errors.New("Chain too short to replace current head:" + string(block.Length) + " vs " + string(c.HeadBlock.Length))
+	}
 	// TODO check hash matches block hash
-	// TODO check hash ones pass threshold
+	c.HeadHash = hash
 	head := Reference{
 		Timestamp:   block.Timestamp,
 		ChannelName: c.Name,
@@ -301,14 +309,14 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 	return nil, errors.New("Couldn't get " + reference.ChannelName + " block from peers")
 }
 
-func (c *Channel) Multicast(hash []byte, block *Block) error {
+func (c *Channel) Cast(hash []byte, block *Block) error {
 	peers, err := GetPeers()
 	if err != nil {
 		return err
 	}
 	for _, peer := range peers {
 		if len(peer) > 0 {
-			address := peer + ":" + strconv.Itoa(PORT_MULTICAST)
+			address := peer + ":" + strconv.Itoa(PORT_CAST)
 			connection, err := net.Dial("tcp", address)
 			if err != nil {
 				return err
@@ -323,16 +331,18 @@ func (c *Channel) Multicast(hash []byte, block *Block) error {
 			if err != nil {
 				return err
 			}
-			// Multicast received, reference holds remote channel current head
+			// Cast received, reference holds remote channel current head
 			if bytes.Equal(hash, reference.BlockHash) {
-				// Multicast accepted
-				log.Println("Multicasted", c.Name, "block", base64.RawURLEncoding.EncodeToString(hash), "to", peer)
+				// Cast accepted
+				log.Println("Casted", c.Name, "block", base64.RawURLEncoding.EncodeToString(hash), "to", peer)
 			} else {
-				// Multicast rejected
+				// TODO if reference.BlockHash is in parameter block's chain, the host is missing some blocks, re-cast each one chronologically to update the host
+				// Cast rejected
 				block, err := c.GetBlock(reference.BlockHash)
 				if err != nil {
 					return err
 				}
+				// TODO if reference.BlockHash points to a longer chain, cast unsuccessful, peer has a longer chain, find common link in chain and re-mine all dropped records into new blocks on top of new head
 				if err := c.Update(reference.BlockHash, block); err != nil {
 					return err
 				}
@@ -473,8 +483,8 @@ func (n *Node) MineRecords(channel *Channel, entries []*BlockEntry) ([]byte, *Bl
 			if err := channel.Update(hash, block); err != nil {
 				return nil, nil, err
 			}
-			if err := channel.Multicast(hash, block); err != nil {
-				log.Println("Multicast Error:", err)
+			if err := channel.Cast(hash, block); err != nil {
+				log.Println("Cast Error:", err)
 				// TODO re-mine all records created by this node not already mined into the Channel's Blockchain
 			}
 			return hash, block, nil
