@@ -525,11 +525,11 @@ func GetCache() (string, error) {
 }
 
 func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey, callback func(*BlockEntry, []byte, []byte) error) error {
-	record := entry.Record
 	decryptedKey, err := DecryptKey(access, key)
 	if err != nil {
 		return err
 	}
+	record := entry.Record
 	switch record.EncryptionAlgorithm {
 	case EncryptionAlgorithm_AES_GCM_NOPADDING:
 		decryptedPayload, err := DecryptAESGCM(decryptedKey, record.Payload)
@@ -857,7 +857,12 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 	for count < size {
 		n, err := reader.Read(buffer[count:])
 		if err != nil {
-			return err
+			if err == io.EOF {
+				// Ignore EOFs, keep trying to read until count == size
+				log.Println(err)
+			} else {
+				return err
+			}
 		}
 		if n <= 0 {
 			return errors.New("Could not read data")

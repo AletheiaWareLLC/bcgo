@@ -247,7 +247,6 @@ func (c *Channel) GetRemoteHead() (*Reference, error) {
 				continue
 			}
 			defer connection.Close()
-			reader := bufio.NewReader(connection)
 			writer := bufio.NewWriter(connection)
 			if err := WriteReference(writer, &Reference{
 				ChannelName: c.Name,
@@ -255,6 +254,7 @@ func (c *Channel) GetRemoteHead() (*Reference, error) {
 				log.Println(err)
 				continue
 			}
+			reader := bufio.NewReader(connection)
 			reference, err := ReadReference(reader)
 			if err != nil {
 				if err != io.EOF {
@@ -284,12 +284,12 @@ func (c *Channel) GetRemoteBlock(reference *Reference) (*Block, error) {
 				continue
 			}
 			defer connection.Close()
-			reader := bufio.NewReader(connection)
 			writer := bufio.NewWriter(connection)
 			if err := WriteReference(writer, reference); err != nil {
 				log.Println(err)
 				continue
 			}
+			reader := bufio.NewReader(connection)
 			block, err := ReadBlock(reader)
 			if err != nil {
 				if err != io.EOF {
