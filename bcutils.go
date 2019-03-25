@@ -51,8 +51,10 @@ const (
 	AES_KEY_SIZE_BITS  = 128
 	AES_KEY_SIZE_BYTES = AES_KEY_SIZE_BITS / 8
 
-	BC_HOST    = "bc.aletheiaware.com"
-	BC_WEBSITE = "https://bc.aletheiaware.com"
+	BC_HOST         = "bc.aletheiaware.com"
+	BC_HOST_TEST    = "test-bc.aletheiaware.com"
+	BC_WEBSITE      = "https://bc.aletheiaware.com"
+	BC_WEBSITE_TEST = "https://test-bc.aletheiaware.com"
 )
 
 func Hash(data []byte) []byte {
@@ -851,6 +853,7 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 	buffer := make([]byte, size)
 	// Calculate data received
 	count := uint64(n - s)
+	log.Println("n", n, "s", s, "count", count)
 	// Copy data into new buffer
 	copy(buffer[:count], data[s:n])
 	// Read addition bytes
