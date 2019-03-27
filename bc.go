@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io"
 	"log"
@@ -68,11 +69,11 @@ func (c *Channel) Update(hash []byte, block *Block) error {
 	// Check hash ones pass threshold
 	ones := Ones(hash)
 	if ones < c.Threshold {
-		return errors.New(fmt.Sprintf("Hash doesn't meet Proof-of-Work threshold: %d vs %d", ones, c.Threshold)
+		return errors.New(fmt.Sprintf("Hash doesn't meet Proof-of-Work threshold: %d vs %d", ones, c.Threshold))
 	}
 	// Check block chain is longer than current head
 	if c.HeadBlock != nil && c.HeadBlock.Length >= block.Length {
-		return errors.New(fmt.Sprintf("Chain too short to replace current head: %d vs %d", block.Length, c.HeadBlock.Length)
+		return errors.New(fmt.Sprintf("Chain too short to replace current head: %d vs %d", block.Length, c.HeadBlock.Length))
 	}
 	// TODO check hash matches block hash
 	c.HeadHash = hash
