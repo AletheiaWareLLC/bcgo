@@ -42,6 +42,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -293,7 +294,7 @@ func GetRSAPrivateKey(directory, alias string, password []byte) (*rsa.PrivateKey
 	}
 }
 
-func ExportKeys(keystore, alias string, password []byte) (string, error) {
+func ExportKeys(host, keystore, alias string, password []byte) (string, error) {
 	privateKey, err := GetRSAPrivateKey(keystore, alias, password)
 	if err != nil {
 		return "", err
@@ -321,7 +322,7 @@ func ExportKeys(keystore, alias string, password []byte) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	response, err := http.PostForm(BC_WEBSITE+"/keys", url.Values{
+	response, err := http.PostForm(host+"/keys", url.Values{
 		"alias":            {alias},
 		"publicKey":        {base64.RawURLEncoding.EncodeToString(publicKeyBytes)},
 		"publicKeyFormat":  {"PKIX"},
@@ -341,8 +342,8 @@ func ExportKeys(keystore, alias string, password []byte) (string, error) {
 	}
 }
 
-func ImportKeys(keystore, alias, accessCode string) error {
-	response, err := http.Get(BC_WEBSITE + "/keys?alias=" + alias)
+func ImportKeys(host, keystore, alias, accessCode string) error {
+	response, err := http.Get(host + "/keys?alias=" + alias)
 	if err != nil {
 		return err
 	}
@@ -383,6 +384,32 @@ func ImportKeys(keystore, alias, accessCode string) error {
 	}
 	log.Println("Keys imported")
 	return nil
+}
+
+func IsDebug() bool {
+	debug, ok := os.LookupEnv("DEBUG")
+	if !ok {
+		return false
+	}
+	b, err := strconv.ParseBool(debug)
+	if err != nil {
+		return false
+	}
+	return b
+}
+
+func GetBCHost() string {
+	if IsDebug() {
+		return BC_HOST_TEST
+	}
+	return BC_HOST
+}
+
+func GetBCWebsite() string {
+	if IsDebug() {
+		return BC_WEBSITE_TEST
+	}
+	return BC_WEBSITE
 }
 
 func GetKeyStore() (string, error) {
@@ -853,7 +880,7 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 	buffer := make([]byte, size)
 	// Calculate data received
 	count := uint64(n - s)
-	log.Println("n", n, "s", s, "count", count)
+	log.Println("n", n, "size", size, "s", s, "count", count)
 	// Copy data into new buffer
 	copy(buffer[:count], data[s:n])
 	// Read addition bytes
