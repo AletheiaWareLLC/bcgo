@@ -881,7 +881,7 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 	log.Println("n", n, "size", size, "s", s, "count", count)
 	if count >= size {
 		// All data in data[s:n]
-		if err = proto.Unmarshal(data[s:s+size], destination); err != nil {
+		if err = proto.Unmarshal(data[s:s+int(size)], destination); err != nil {
 			return err
 		}
 	} else {
