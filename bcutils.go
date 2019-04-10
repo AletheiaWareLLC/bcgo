@@ -876,32 +876,40 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 		return errors.New(fmt.Sprintf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES))
 	}
 
-	// Create new larger buffer
-	buffer := make([]byte, size)
 	// Calculate data received
 	count := uint64(n - s)
 	log.Println("n", n, "size", size, "s", s, "count", count)
-	// Copy data into new buffer
-	copy(buffer[:count], data[s:n])
-	// Read addition bytes
-	for count < size {
-		n, err := reader.Read(buffer[count:])
-		if err != nil {
-			if err == io.EOF {
-				// Ignore EOFs, keep trying to read until count == size
-				log.Println(err)
-			} else {
-				return err
+	if count >= size {
+		// All data in data[s:n]
+		if err = proto.Unmarshal(data[s:s+size], destination); err != nil {
+			return err
+		}
+	} else {
+		// More data in reader
+		// Create new larger buffer
+		buffer := make([]byte, size)
+		// Copy data into new buffer
+		copy(buffer[:count], data[s:n])
+		// Read addition bytes
+		for count < size {
+			n, err := reader.Read(buffer[count:])
+			if err != nil {
+				if err == io.EOF {
+					// Ignore EOFs, keep trying to read until count == size
+					log.Println(err)
+				} else {
+					return err
+				}
 			}
+			if n <= 0 {
+				return errors.New("Could not read data")
+			}
+			count = count + uint64(n)
 		}
-		if n <= 0 {
-			return errors.New("Could not read data")
-		}
-		count = count + uint64(n)
-	}
 
-	if err = proto.Unmarshal(buffer, destination); err != nil {
-		return err
+		if err = proto.Unmarshal(buffer, destination); err != nil {
+			return err
+		}
 	}
 	return nil
 }
