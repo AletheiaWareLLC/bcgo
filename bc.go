@@ -150,7 +150,7 @@ func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, c
 	for _, entry := range block.Entry {
 		if bytes.Equal(recordHash, entry.RecordHash) {
 			for _, access := range entry.Record.Access {
-				if alias == access.Alias {
+				if alias == "" || alias == access.Alias {
 					decryptedKey, err := DecryptKey(access, key)
 					if err != nil {
 						return err
@@ -164,13 +164,21 @@ func (c *Channel) GetKey(alias string, key *rsa.PrivateKey, recordHash []byte, c
 }
 
 func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
+	// Decrypt each record in chain and pass to the given callback
 	return c.Iterate(func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
 			if recordHash == nil || bytes.Equal(recordHash, entry.RecordHash) {
-				for _, access := range entry.Record.Access {
-					if alias == access.Alias {
-						if err := DecryptRecord(entry, access, key, callback); err != nil {
-							return err
+				if len(entry.Record.Access) == 0 {
+					// No Access Declared - Data is public and unencrypted
+					if err := callback(entry, nil, entry.Record.Payload); err != nil {
+						return err
+					}
+				} else {
+					for _, access := range entry.Record.Access {
+						if alias == "" || alias == access.Alias {
+							if err := DecryptRecord(entry, access, key, callback); err != nil {
+								return err
+							}
 						}
 					}
 				}
@@ -180,8 +188,15 @@ func (c *Channel) Read(alias string, key *rsa.PrivateKey, recordHash []byte, cal
 	})
 }
 
+type StopIterationError struct {
+}
+
+func (e StopIterationError) Error() string {
+	return "Stop Iteration"
+}
+
 func (c *Channel) Iterate(callback func([]byte, *Block) error) error {
-	// Decrypt each record in chain and pass to the given callback
+	// Iterate throught each block in the chain
 	h := c.HeadHash
 	b := c.HeadBlock
 	for b != nil {

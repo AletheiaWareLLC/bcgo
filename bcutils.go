@@ -568,7 +568,7 @@ func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey
 		// Call callback
 		return callback(entry, decryptedKey, decryptedPayload)
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
-		fallthrough
+		return callback(entry, nil, record.Payload)
 	default:
 		return errors.New("Unsupported encryption: " + record.EncryptionAlgorithm.String())
 	}
@@ -580,7 +580,7 @@ func DecryptKey(access *Record_Access, key *rsa.PrivateKey) ([]byte, error) {
 		// Decrypt a shared key
 		return rsa.DecryptOAEP(sha512.New(), rand.Reader, key, access.SecretKey, nil)
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
-		fallthrough
+		return access.SecretKey, nil
 	default:
 		return nil, errors.New("Unsupported encryption" + access.EncryptionAlgorithm.String())
 	}
