@@ -621,18 +621,38 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	if size > MAX_PAYLOAD_SIZE_BYTES {
 		return nil, nil, errors.New("Payload too large: " + SizeToString(size) + " max: " + SizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
-	key, err := GenerateRandomKey()
-	if err != nil {
-		return nil, nil, err
+	acl := make([]*Record_Access, 0, len(access))
+	var key []byte
+	var err error
+	if len(access) > 0 {
+		key, err = GenerateRandomKey()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		payload, err = EncryptAESGCM(key, payload)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Grant access to each public key
+		for a, k := range access {
+			secretKey, err := rsa.EncryptOAEP(sha512.New(), rand.Reader, k, key, nil)
+			if err != nil {
+				return nil, nil, err
+			}
+			acl = append(acl, &Record_Access{
+				Alias:               a,
+				SecretKey:           secretKey,
+				EncryptionAlgorithm: EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
+			})
+		}
+	} else {
+		log.Println("No aliases granted access, creating public record")
 	}
 
-	encrypted, err := EncryptAESGCM(key, payload)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Hash encrypted payload
-	hashed := Hash(encrypted)
+	// Hash payload
+	hashed := Hash(payload)
 
 	// Sign hash of encrypted payload
 	signature, err := CreateSignature(creatorKey, hashed, SignatureAlgorithm_SHA512WITHRSA_PSS)
@@ -640,31 +660,20 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 		return nil, nil, err
 	}
 
-	// Grant access to each public key
-	acl := make([]*Record_Access, 0)
-	for a, k := range access {
-		secretKey, err := rsa.EncryptOAEP(sha512.New(), rand.Reader, k, key, nil)
-		if err != nil {
-			return nil, nil, err
-		}
-		acl = append(acl, &Record_Access{
-			Alias:               a,
-			SecretKey:           secretKey,
-			EncryptionAlgorithm: EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
-		})
-	}
-
 	// Create record
-	return key, &Record{
+	record := &Record{
 		Timestamp:           uint64(time.Now().UnixNano()),
 		Creator:             creatorAlias,
-		Access:              acl,
-		Payload:             encrypted,
+		Payload:             payload,
 		EncryptionAlgorithm: EncryptionAlgorithm_AES_GCM_NOPADDING,
 		Signature:           signature,
 		SignatureAlgorithm:  SignatureAlgorithm_SHA512WITHRSA_PSS,
 		Reference:           references,
-	}, nil
+	}
+	if acl != nil && len(acl) > 0 {
+		record.Access = acl
+	}
+	return key, record, nil
 }
 
 func GenerateRandomKey() ([]byte, error) {
