@@ -1,0 +1,178 @@
+/*
+ * Copyright 2019 Aletheia Ware LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package bcgo_test
+
+import (
+	"bufio"
+	"bytes"
+	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/testinggo"
+	"github.com/golang/protobuf/proto"
+	"io/ioutil"
+	"os"
+	"os/user"
+	"regexp"
+	"testing"
+)
+
+func setEnv(t *testing.T, key, value string) {
+	t.Helper()
+	os.Setenv(key, value)
+}
+
+func unsetEnv(t *testing.T, key string) {
+	t.Helper()
+	os.Unsetenv(key)
+}
+
+func TestSizeToString(t *testing.T) {
+	sizeTests := []struct {
+		given    uint64
+		expected string
+	}{
+		{0, "0bytes"},
+		{64, "64bytes"},
+		{1234, "1.21Kb"},
+		{56789, "55.46Kb"},
+		{1234567, "1.18Mb"},
+		{8901234567, "8.29Gb"},
+		{8901234567890, "8.10Tb"},
+		{12345678901234567, "10.97Pb"},
+	}
+	for _, test := range sizeTests {
+		got := bcgo.SizeToString(test.given)
+		if got != test.expected {
+			t.Fatalf("expected %s, instead got %s", test.expected, got)
+		}
+	}
+}
+
+func TestTimestampToString(t *testing.T) {
+	given := uint64(1565656565656565656)
+	expected := "2019-08-12 17:36:05"
+	got := bcgo.TimestampToString(given)
+	if got != expected {
+		t.Fatalf("expected %s, instead got %s", expected, got)
+	}
+}
+
+func TestGetAlias(t *testing.T) {
+	t.Run("EnvUnset", func(t *testing.T) {
+		unsetEnv(t, "ALIAS")
+		alias, err := bcgo.GetAlias()
+		testinggo.AssertNoError(t, err)
+		u, err := user.Current()
+		testinggo.AssertNoError(t, err)
+		if alias != u.Username {
+			t.Fatalf("Incorrect alias; expected '%s', got '%s'", u.Username, alias)
+		}
+	})
+	t.Run("EnvSet", func(t *testing.T) {
+		setEnv(t, "ALIAS", "foobar123")
+		defer unsetEnv(t, "ALIAS")
+		alias, err := bcgo.GetAlias()
+		testinggo.AssertNoError(t, err)
+		if alias != "foobar123" {
+			t.Fatalf("Incorrect alias; expected '%s', got '%s'", "foobar123", alias)
+		}
+	})
+}
+
+func TestGetRootDir(t *testing.T) {
+	t.Run("EnvUnset", func(t *testing.T) {
+		unsetEnv(t, "ROOT_DIRECTORY")
+		root, err := bcgo.GetRootDirectory()
+		testinggo.AssertNoError(t, err)
+		match, err := regexp.MatchString("^/.*/bc$", root)
+		testinggo.AssertNoError(t, err)
+		if !match {
+			t.Fatalf("Incorrect root directory; expected root in homedir, got '%s'", root)
+		}
+	})
+	t.Run("EnvSet", func(t *testing.T) {
+		setEnv(t, "ROOT_DIRECTORY", "foobar123")
+		defer unsetEnv(t, "ROOT_DIRECTORY")
+		root, err := bcgo.GetRootDirectory()
+		testinggo.AssertNoError(t, err)
+		if root != "foobar123" {
+			t.Fatalf("Incorrect root directory; expected foobar123, got '%s'", root)
+		}
+	})
+}
+
+func TestGetCacheDir(t *testing.T) {
+	t.Run("EnvUnset", func(t *testing.T) {
+		unsetEnv(t, "CACHE_DIRECTORY")
+		temp, err := ioutil.TempDir("", "foobar")
+		defer os.Remove(temp)
+		cache, err := bcgo.GetCacheDirectory(temp)
+		testinggo.AssertNoError(t, err)
+		match, err := regexp.MatchString("^"+temp+"/cache$", cache)
+		testinggo.AssertNoError(t, err)
+		if !match {
+			t.Fatalf("Incorrect cache directory; expected cache in homedir, got '%s'", cache)
+		}
+	})
+	t.Run("EnvSet", func(t *testing.T) {
+		setEnv(t, "CACHE_DIRECTORY", "foobar123")
+		defer unsetEnv(t, "CACHE_DIRECTORY")
+		cache, err := bcgo.GetCacheDirectory("/foobar")
+		testinggo.AssertNoError(t, err)
+		if cache != "foobar123" {
+			t.Fatalf("Incorrect cache directory; expected foobar123, got '%s'", cache)
+		}
+	})
+}
+
+func writeReadBuffer(t *testing.T, buffer *bytes.Buffer, proto1, proto2 proto.Message) {
+	t.Helper()
+	testinggo.AssertNoError(t, bcgo.WriteDelimitedProtobuf(bufio.NewWriter(buffer), proto1))
+	testinggo.AssertNoError(t, bcgo.ReadDelimitedProtobuf(bufio.NewReader(buffer), proto2))
+	testinggo.AssertProtobufEqual(t, proto1, proto2)
+}
+
+func TestDelimitedProtobuf(t *testing.T) {
+	t.Run("SmallBlock", func(t *testing.T) {
+		buffer := &bytes.Buffer{}
+		block1 := &bcgo.Block{
+			ChannelName: "Test",
+		}
+		block2 := &bcgo.Block{}
+		writeReadBuffer(t, buffer, block1, block2)
+	})
+	t.Run("BigBlock", func(t *testing.T) {
+		longName := make([]byte, bcgo.MAX_PAYLOAD_SIZE_BYTES+1)
+		buffer := &bytes.Buffer{}
+		block1 := &bcgo.Block{
+			Timestamp:   1234,
+			ChannelName: "Test" + string(longName),
+			Length:      1,
+		}
+		block2 := &bcgo.Block{}
+		writeReadBuffer(t, buffer, block1, block2)
+	})
+	t.Run("Reference", func(t *testing.T) {
+		buffer := &bytes.Buffer{}
+		reference1 := &bcgo.Reference{
+			Timestamp:   1234,
+			ChannelName: "Test",
+			BlockHash:   []byte("FooBar"),
+		}
+		reference2 := &bcgo.Reference{}
+		writeReadBuffer(t, buffer, reference1, reference2)
+	})
+}
