@@ -16,18 +16,12 @@
 
 package bcgo
 
-const (
-	THRESHOLD_NONE     = 0
-	THRESHOLD_EASIEST  = 264 // 33/64
-	THRESHOLD_EASY     = 272 // 17/32
-	THRESHOLD_STANDARD = 288 // 9/16
-	THRESHOLD_HARD     = 320 // 5/8
-	THRESHOLD_HARDEST  = 384 // 3/4
-
-	THRESHOLD_PVB_HOUR = THRESHOLD_STANDARD
-	THRESHOLD_PVB_DAY  = THRESHOLD_HARD
-	THRESHOLD_PVB_YEAR = THRESHOLD_HARDEST
-
-	MAX_BLOCK_SIZE_BYTES   = uint64(2 * 1024 * 1024 * 1024) // 2Gb
-	MAX_PAYLOAD_SIZE_BYTES = uint64(10 * 1024 * 1024)       // 10Mb
-)
+type Cache interface {
+	GetHead(channel string) (*Reference, error)
+	GetBlock(hash []byte) (*Block, error)
+	GetBlockEntries(channel string, timestamp uint64) ([]*BlockEntry, error)
+	PutHead(channel string, reference *Reference) error
+	PutBlock(hash []byte, block *Block) error
+	PutBlockEntry(channel string, entry *BlockEntry) error
+	//DeleteBlock(hash []byte) error
+}

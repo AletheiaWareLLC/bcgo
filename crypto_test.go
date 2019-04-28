@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package bcgo
+package bcgo_test
 
-const (
-	THRESHOLD_NONE     = 0
-	THRESHOLD_EASIEST  = 264 // 33/64
-	THRESHOLD_EASY     = 272 // 17/32
-	THRESHOLD_STANDARD = 288 // 9/16
-	THRESHOLD_HARD     = 320 // 5/8
-	THRESHOLD_HARDEST  = 384 // 3/4
-
-	THRESHOLD_PVB_HOUR = THRESHOLD_STANDARD
-	THRESHOLD_PVB_DAY  = THRESHOLD_HARD
-	THRESHOLD_PVB_YEAR = THRESHOLD_HARDEST
-
-	MAX_BLOCK_SIZE_BYTES   = uint64(2 * 1024 * 1024 * 1024) // 2Gb
-	MAX_PAYLOAD_SIZE_BYTES = uint64(10 * 1024 * 1024)       // 10Mb
+import (
+	"crypto/rand"
+	"crypto/rsa"
+	"testing"
 )
+
+func makeKey(t *testing.T) *rsa.PrivateKey {
+	k, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Error("Could not generate key:", err)
+	}
+	return k
+}
