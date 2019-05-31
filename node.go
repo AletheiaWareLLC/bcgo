@@ -19,9 +19,17 @@ package bcgo
 import (
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"sort"
 	"time"
+)
+
+const (
+	ERROR_NO_SUCH_CHANNEL   = "No such channel: %s"
+	ERROR_PAYLOAD_TOO_LARGE = "Payload too large: %s max: %s"
+	ERROR_BLOCK_TOO_LARGE   = "Block too large: %s max: %s"
+	ERROR_NONCE_WRAP_AROUND = "Nonce wrapped around before reaching threshold"
 )
 
 type MiningListener interface {
@@ -54,7 +62,7 @@ func GetNode(directory string, cache Cache, network Network) (*Node, error) {
 		Key:      key,
 		Cache:    cache,
 		Network:  network,
-		Channels: make(map[string]ThresholdChannel, 0),
+		Channels: make(map[string]ThresholdChannel),
 	}, nil
 }
 
@@ -65,7 +73,7 @@ func (n *Node) AddChannel(channel ThresholdChannel) {
 func (n *Node) GetChannel(name string) (ThresholdChannel, error) {
 	c, ok := n.Channels[name]
 	if !ok {
-		return nil, errors.New("No such channel: " + name)
+		return nil, errors.New(fmt.Sprintf(ERROR_NO_SUCH_CHANNEL, name))
 	}
 	return c, nil
 }
@@ -87,7 +95,7 @@ func (n *Node) GetChannels() []Channel {
 func (n *Node) Write(channel ThresholdChannel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, errors.New("Payload too large: " + SizeToString(size) + " max: " + SizeToString(MAX_PAYLOAD_SIZE_BYTES))
+		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, SizeToString(size), SizeToString(MAX_PAYLOAD_SIZE_BYTES)))
 	}
 	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
 	if err != nil {
@@ -150,8 +158,9 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 
 	size := uint64(proto.Size(block))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, errors.New("Block too large: " + SizeToString(size) + " max: " + SizeToString(MAX_BLOCK_SIZE_BYTES))
+		return nil, nil, errors.New(fmt.Sprintf(ERROR_BLOCK_TOO_LARGE, SizeToString(size), SizeToString(MAX_BLOCK_SIZE_BYTES)))
 	}
+
 	if listener != nil {
 		listener.OnMiningStarted(channel, size)
 	}
@@ -180,5 +189,5 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 			return hash, block, nil
 		}
 	}
-	return nil, nil, errors.New("Nonce wrapped around before reaching threshold")
+	return nil, nil, errors.New(ERROR_NONCE_WRAP_AROUND)
 }

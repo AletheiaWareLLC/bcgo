@@ -37,7 +37,7 @@ type Channel interface {
 	SetHead([]byte)
 	GetTimestamp() uint64
 	SetTimestamp(uint64)
-	Valid(cache Cache, hash []byte, block *Block) error
+	Validate(cache Cache, hash []byte, block *Block) error
 }
 
 type ThresholdChannel interface {
@@ -71,7 +71,7 @@ func Update(channel Channel, cache Cache, hash []byte, block *Block) error {
 		}
 	}
 
-	if err := channel.Valid(cache, hash, block); err != nil {
+	if err := channel.Validate(cache, hash, block); err != nil {
 		return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
 	}
 

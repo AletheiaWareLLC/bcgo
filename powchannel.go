@@ -60,7 +60,7 @@ func (p *PoWChannel) String() string {
 	return p.Name + " " + strconv.FormatUint(p.Threshold, 10)
 }
 
-func (p *PoWChannel) Valid(cache Cache, hash []byte, block *Block) error {
+func (p *PoWChannel) Validate(cache Cache, hash []byte, block *Block) error {
 	return Iterate(hash, block, cache, func(h []byte, b *Block) error {
 		// Check hash ones pass threshold
 		ones := Ones(h)

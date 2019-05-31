@@ -72,7 +72,7 @@ func (m *MockChannel) SetHead(hash []byte) {
 	m.HeadHash = hash
 }
 
-func (m *MockChannel) Valid(cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
+func (m *MockChannel) Validate(cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
 	return m.ValidError
 }
 

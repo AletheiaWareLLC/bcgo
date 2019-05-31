@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"github.com/AletheiaWareLLC/bcgo"
 	"github.com/AletheiaWareLLC/testinggo"
+	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"os"
 	"path"
@@ -186,4 +187,77 @@ func TestFileCachePutHead(t *testing.T) {
 		t.Fatalf("Expected error 'TEST', instead got '%s'", ref.ChannelName)
 	}
 	testinggo.AssertHashEqual(t, hash, ref.BlockHash)
+}
+
+func TestMeasureStorageUsage(t *testing.T) {
+	t.Run("NoUsage", func(t *testing.T) {
+		cacheDir := makeCacheDir(t)
+		defer unmakeCacheDir(t, cacheDir)
+		fc, err := bcgo.NewFileCache(cacheDir)
+		testinggo.AssertNoError(t, err)
+		usage, err := fc.MeasureStorageUsage("")
+		if err != nil {
+			t.Fatalf("Expected no error")
+		}
+		if len(usage) != 0 {
+			t.Fatalf("Expected no usage")
+		}
+	})
+	t.Run("Usage", func(t *testing.T) {
+		cacheDir := makeCacheDir(t)
+		defer unmakeCacheDir(t, cacheDir)
+		fc, err := bcgo.NewFileCache(cacheDir)
+		testinggo.AssertNoError(t, err)
+		aliceRecord := &bcgo.Record{
+			Creator: "Alice",
+		}
+		aliceRecordHash, err := bcgo.HashProtobuf(aliceRecord)
+		if err != nil {
+			t.Fatalf("Expected no error, got " + err.Error())
+		}
+		aliceExpected := uint64(proto.Size(aliceRecord))
+		bobRecord := &bcgo.Record{
+			Creator: "Bob",
+		}
+		bobRecordHash, err := bcgo.HashProtobuf(bobRecord)
+		if err != nil {
+			t.Fatalf("Expected no error, got " + err.Error())
+		}
+		bobExpected := uint64(proto.Size(bobRecord))
+		block := &bcgo.Block{
+			ChannelName: "Test",
+			Entry: []*bcgo.BlockEntry{
+				&bcgo.BlockEntry{
+					RecordHash: aliceRecordHash,
+					Record:     aliceRecord,
+				},
+				&bcgo.BlockEntry{
+					RecordHash: bobRecordHash,
+					Record:     bobRecord,
+				},
+			},
+		}
+		blockHash, err := bcgo.HashProtobuf(block)
+		if err != nil {
+			t.Fatalf("Expected no error, got " + err.Error())
+		}
+		if err := fc.PutBlock(blockHash, block); err != nil {
+			t.Fatalf("Expected no error, got " + err.Error())
+		}
+		usage, err := fc.MeasureStorageUsage("")
+		if err != nil {
+			t.Fatalf("Expected no error, got " + err.Error())
+		}
+		if len(usage) != 2 {
+			t.Fatalf("Expected usage")
+		}
+		aliceUsage := usage["Alice"]
+		if aliceUsage != aliceExpected {
+			t.Fatalf("Incorrect usage; expected '%d', got '%d'", aliceExpected, aliceUsage)
+		}
+		bobUsage := usage["Bob"]
+		if bobUsage != bobExpected {
+			t.Fatalf("Incorrect usage; expected '%d', got '%d'", bobExpected, bobUsage)
+		}
+	})
 }

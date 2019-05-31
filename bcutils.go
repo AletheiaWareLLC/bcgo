@@ -209,7 +209,11 @@ func GetPeers(directory string) ([]string, error) {
 	if ok {
 		return strings.Split(string(env), ","), nil
 	} else {
-		data, err := ioutil.ReadFile(path.Join(directory, "peers"))
+		filename := "peers"
+		if IsDebug() {
+			filename = "test-peers"
+		}
+		data, err := ioutil.ReadFile(path.Join(directory, filename))
 		if err != nil {
 			return nil, err
 		}
@@ -219,7 +223,11 @@ func GetPeers(directory string) ([]string, error) {
 }
 
 func AddPeer(directory, peer string) error {
-	file, err := os.OpenFile(path.Join(directory, "peers"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	filename := "peers"
+	if IsDebug() {
+		filename = "test-peers"
+	}
+	file, err := os.OpenFile(path.Join(directory, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}

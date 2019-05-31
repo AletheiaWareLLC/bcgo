@@ -23,6 +23,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 )
 
 type FileCache struct {
@@ -140,3 +141,33 @@ func (f *FileCache) PutHead(channel string, reference *Reference) error {
 // 	// Delete file
 // 	return os.Remove(path.Join(f.Directory, "block", base64.RawURLEncoding.EncodeToString(hash)))
 // }
+
+func (f *FileCache) MeasureStorageUsage(prefix string) (map[string]uint64, error) {
+	usage := make(map[string]uint64)
+	files, err := ioutil.ReadDir(path.Join(f.Directory, "block"))
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		hash, err := base64.RawURLEncoding.DecodeString(file.Name())
+		if err != nil {
+			return nil, err
+		}
+		block, err := f.GetBlock(hash)
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(block.ChannelName, prefix) {
+			for _, entry := range block.Entry {
+				record := entry.Record
+				u, ok := usage[record.Creator]
+				if !ok {
+					u = 0
+				}
+				u += uint64(proto.Size(record))
+				usage[record.Creator] = u
+			}
+		}
+	}
+	return usage, nil
+}

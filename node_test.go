@@ -80,7 +80,7 @@ func (m *MockThresholdChannel) String() string {
 	return m.Name + " " + strconv.FormatUint(m.Threshold, 10)
 }
 
-func (m *MockThresholdChannel) Valid(cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
+func (m *MockThresholdChannel) Validate(cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
 	return m.ValidError
 }
 
