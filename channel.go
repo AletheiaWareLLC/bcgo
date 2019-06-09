@@ -40,11 +40,6 @@ type Channel interface {
 	Validate(cache Cache, hash []byte, block *Block) error
 }
 
-type ThresholdChannel interface {
-	Channel
-	GetThreshold() uint64
-}
-
 func Update(channel Channel, cache Cache, hash []byte, block *Block) error {
 	head := channel.GetHead()
 	if bytes.Equal(head, hash) {

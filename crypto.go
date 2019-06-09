@@ -46,6 +46,19 @@ const (
 	AES_KEY_SIZE_BYTES = AES_KEY_SIZE_BITS / 8
 )
 
+func Hash(data []byte) []byte {
+	hash := sha512.Sum512(data)
+	return hash[:]
+}
+
+func HashProtobuf(protobuf proto.Message) ([]byte, error) {
+	data, err := proto.Marshal(protobuf)
+	if err != nil {
+		return nil, err
+	}
+	return Hash(data), nil
+}
+
 func RSAPublicKeyToPKCS1Bytes(publicKey *rsa.PublicKey) []byte {
 	return x509.MarshalPKCS1PublicKey(publicKey)
 }

@@ -44,19 +44,6 @@ const (
 	BC_HOST_TEST = "test-bc.aletheiaware.com"
 )
 
-func Hash(data []byte) []byte {
-	hash := sha512.Sum512(data)
-	return hash[:]
-}
-
-func HashProtobuf(protobuf proto.Message) ([]byte, error) {
-	data, err := proto.Marshal(protobuf)
-	if err != nil {
-		return nil, err
-	}
-	return Hash(data), nil
-}
-
 func Ones(data []byte) uint64 {
 	var count uint64
 	for _, x := range data {
@@ -190,7 +177,7 @@ func GetCertificateDirectory(directory string) (string, error) {
 func SetupLogging(directory string) (*os.File, error) {
 	store, ok := os.LookupEnv("LOG_DIRECTORY")
 	if !ok {
-		store = path.Join(directory, "bc", "logs")
+		store = path.Join(directory, "logs")
 	}
 	if err := os.MkdirAll(store, os.ModePerm); err != nil {
 		return nil, err
