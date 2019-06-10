@@ -48,6 +48,14 @@ func OpenAndLoadPoWChannel(name string, threshold uint64, cache Cache, network N
 	return c
 }
 
+func OpenAndPullPoWChannel(name string, threshold uint64, cache Cache, network Network) *PoWChannel {
+	c := OpenPoWChannel(name, threshold)
+	if err := Pull(c, cache, network); err != nil {
+		fmt.Println(err)
+	}
+	return c
+}
+
 func (p *PoWChannel) GetName() string {
 	return p.Name
 }

@@ -17,6 +17,6 @@
 package bcgo
 
 type ThresholdChannel interface {
-    Channel
-    GetThreshold() uint64
+	Channel
+	GetThreshold() uint64
 }
