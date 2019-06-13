@@ -274,6 +274,13 @@ func Pull(channel Channel, cache Cache, network Network) error {
 
 func Push(channel Channel, cache Cache, network Network) error {
 	hash := channel.GetHead()
+	if hash == nil {
+		reference, err := cache.GetHead(channel.GetName())
+		if err != nil {
+			return err
+		}
+		hash = reference.BlockHash
+	}
 	block, err := cache.GetBlock(hash)
 	if err != nil {
 		return err
