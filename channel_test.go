@@ -72,7 +72,7 @@ func (m *MockChannel) SetHead(hash []byte) {
 	m.HeadHash = hash
 }
 
-func (m *MockChannel) Validate(cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
+func (m *MockChannel) Validate(cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
 	return m.ValidError
 }
 
@@ -124,12 +124,12 @@ func TestChannelUpdate(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		channel.SetHead(hash)
-		testinggo.AssertNoError(t, bcgo.Update(channel, nil, hash, block))
+		testinggo.AssertNoError(t, bcgo.Update(channel, nil, nil, hash, block))
 	})
 	t.Run("WrongHash", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		channel := makeMockChannel(t)
-		testinggo.AssertError(t, bcgo.ERROR_HASH_INCORRECT, bcgo.Update(channel, nil, []byte("WRONGHASH"), block))
+		testinggo.AssertError(t, bcgo.ERROR_HASH_INCORRECT, bcgo.Update(channel, nil, nil, []byte("WRONGHASH"), block))
 	})
 	t.Run("ShortChain", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -143,8 +143,8 @@ func TestChannelUpdate(t *testing.T) {
 		hash2 := makeHash(t, block2)
 		channel := makeMockChannel(t)
 		cache := makeCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, hash2, block2))
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2), bcgo.Update(channel, cache, hash, block))
+		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash2, block2))
+		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2), bcgo.Update(channel, cache, nil, hash, block))
 	})
 	t.Run("InvalidChain", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -152,7 +152,7 @@ func TestChannelUpdate(t *testing.T) {
 		channel := makeMockChannel(t)
 		channel.ValidError = errors.New("Foo Bar")
 
-		testinggo.AssertError(t, "Chain invalid: Foo Bar", bcgo.Update(channel, nil, hash, block))
+		testinggo.AssertError(t, "Chain invalid: Foo Bar", bcgo.Update(channel, nil, nil, hash, block))
 	})
 	t.Run("CacheHeadWriteError", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -160,14 +160,14 @@ func TestChannelUpdate(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := makeCache(t)
 		cache.PutHeadError = errors.New("Put failed")
-		testinggo.AssertError(t, "Put failed", bcgo.Update(channel, cache, hash, block))
+		testinggo.AssertError(t, "Put failed", bcgo.Update(channel, cache, nil, hash, block))
 	})
 	t.Run("CacheHeadWrite", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, hash, block))
+		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash, block))
 		if len(cache.Head) != 1 {
 			t.Fatalf("Updated head not put in cache")
 		}
@@ -183,7 +183,7 @@ func TestChannelUpdate(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, hash, block))
+		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash, block))
 		if len(cache.Block) != 1 {
 			t.Fatalf("Block not put in cache")
 		}

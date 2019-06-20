@@ -107,7 +107,7 @@ func (n *Node) Write(channel ThresholdChannel, acl map[string]*rsa.PublicKey, re
 func (n *Node) GetLastMinedTimestamp(channel ThresholdChannel) (uint64, error) {
 	var timestamp uint64
 	// Iterate through the chain to find the most recent block mined by this node
-	if err := Iterate(channel.GetHead(), nil, n.Cache, func(h []byte, b *Block) error {
+	if err := Iterate(channel.GetName(), channel.GetHead(), nil, n.Cache, n.Network, func(h []byte, b *Block) error {
 		if b.Miner == n.Alias {
 			timestamp = b.Timestamp
 			return StopIterationError{}
@@ -183,7 +183,7 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 			if listener != nil {
 				listener.OnMiningThresholdReached(channel, hash, block)
 			}
-			if err := Update(channel, n.Cache, hash, block); err != nil {
+			if err := Update(channel, n.Cache, n.Network, hash, block); err != nil {
 				return nil, nil, err
 			}
 			return hash, block, nil

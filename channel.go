@@ -37,10 +37,10 @@ type Channel interface {
 	SetHead([]byte)
 	GetTimestamp() uint64
 	SetTimestamp(uint64)
-	Validate(cache Cache, hash []byte, block *Block) error
+	Validate(cache Cache, network Network, hash []byte, block *Block) error
 }
 
-func Update(channel Channel, cache Cache, hash []byte, block *Block) error {
+func Update(channel Channel, cache Cache, network Network, hash []byte, block *Block) error {
 	head := channel.GetHead()
 	if bytes.Equal(head, hash) {
 		// Channel up to date
@@ -66,7 +66,7 @@ func Update(channel Channel, cache Cache, hash []byte, block *Block) error {
 		}
 	}
 
-	if err := channel.Validate(cache, hash, block); err != nil {
+	if err := channel.Validate(cache, network, hash, block); err != nil {
 		return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
 	}
 
@@ -83,8 +83,8 @@ func Update(channel Channel, cache Cache, hash []byte, block *Block) error {
 	return cache.PutBlock(hash, block)
 }
 
-func ReadKey(hash []byte, block *Block, cache Cache, alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
-	return Iterate(hash, block, cache, func(h []byte, b *Block) error {
+func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
+	return Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range block.Entry {
 			if bytes.Equal(recordHash, entry.RecordHash) {
 				for _, access := range entry.Record.Access {
@@ -102,9 +102,9 @@ func ReadKey(hash []byte, block *Block, cache Cache, alias string, key *rsa.Priv
 	})
 }
 
-func Read(hash []byte, block *Block, cache Cache, alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
+func Read(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
 	// Decrypt each record in chain and pass to the given callback
-	return Iterate(hash, block, cache, func(h []byte, b *Block) error {
+	return Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
 			if recordHash == nil || bytes.Equal(recordHash, entry.RecordHash) {
 				if len(entry.Record.Access) == 0 {
@@ -134,7 +134,7 @@ func (e StopIterationError) Error() string {
 	return "Stop Iteration"
 }
 
-func Iterate(hash []byte, block *Block, cache Cache, callback func([]byte, *Block) error) error {
+func Iterate(channel string, hash []byte, block *Block, cache Cache, network Network, callback func([]byte, *Block) error) error {
 	// Iterate throught each block in the chain
 	if hash == nil {
 		return nil
@@ -142,7 +142,7 @@ func Iterate(hash []byte, block *Block, cache Cache, callback func([]byte, *Bloc
 	var err error
 	b := block
 	if b == nil {
-		b, err = cache.GetBlock(hash)
+		b, err = GetBlock(channel, cache, network, hash)
 		if err != nil {
 			return err
 		}
@@ -153,7 +153,7 @@ func Iterate(hash []byte, block *Block, cache Cache, callback func([]byte, *Bloc
 		}
 		hash = b.Previous
 		if hash != nil && len(hash) > 0 {
-			b, err = cache.GetBlock(hash)
+			b, err = GetBlock(channel, cache, network, hash)
 			if err != nil {
 				return err
 			}
@@ -239,6 +239,9 @@ func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error
 }
 
 func Pull(channel Channel, cache Cache, network Network) error {
+	if network == nil {
+		return nil
+	}
 	reference, err := network.GetHead(channel.GetName())
 	if err != nil {
 		return err
@@ -266,7 +269,7 @@ func Pull(channel Channel, cache Cache, network Network) error {
 			b = nil
 		}
 	}
-	if err := Update(channel, cache, hash, block); err != nil {
+	if err := Update(channel, cache, network, hash, block); err != nil {
 		return err
 	}
 	return nil

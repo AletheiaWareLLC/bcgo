@@ -65,7 +65,7 @@ func ExamplePoWChannelUpdate() {
 	if err != nil {
 		log.Fatal("Could not hash block:", err)
 	}
-	if err := bcgo.Update(channel, cache, hash, block); err != nil {
+	if err := bcgo.Update(channel, cache, nil, hash, block); err != nil {
 		log.Fatal("Could not update channel: ", err)
 	}
 	// Output:
@@ -86,7 +86,7 @@ func ExamplePoWChannelUpdate_Threshold() {
 	if err != nil {
 		log.Fatal("Could not hash block:", err)
 	}
-	fmt.Println(bcgo.Update(channel, cache, hash, block))
+	fmt.Println(bcgo.Update(channel, cache, nil, hash, block))
 	// Output: Chain invalid: Hash doesn't meet Proof-of-Work threshold: 262 vs 288
 }
 
@@ -103,7 +103,7 @@ func ExamplePoWChannelUpdateGetHead() {
 	if err != nil {
 		log.Fatal("Could not hash block:", err)
 	}
-	if err := bcgo.Update(channel, cache, hash, block); err != nil {
+	if err := bcgo.Update(channel, cache, nil, hash, block); err != nil {
 		log.Fatal("Could not update channel: ", err)
 	}
 	fmt.Println(channel.GetHead())
@@ -137,7 +137,7 @@ func ExamplePoWChannelFileCache() {
 		if err != nil {
 			log.Fatal("Could not hash block:", err)
 		}
-		if err := bcgo.Update(channel, cache, hash, block); err != nil {
+		if err := bcgo.Update(channel, cache, nil, hash, block); err != nil {
 			log.Fatal("Could not update channel: ", err)
 		}
 	}
