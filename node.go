@@ -26,6 +26,7 @@ import (
 )
 
 const (
+	ERROR_NO_ENTRIES_TO_MINE = "No entries to mine for channel: %s"
 	ERROR_NO_SUCH_CHANNEL   = "No such channel: %s"
 	ERROR_PAYLOAD_TOO_LARGE = "Payload too large: %s max: %s"
 	ERROR_BLOCK_TOO_LARGE   = "Block too large: %s max: %s"
@@ -134,6 +135,10 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 	entries, err := n.Cache.GetBlockEntries(channel.GetName(), timestamp)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(entries) == 0 {
+		return nil, nil, errors.New(fmt.Sprintf(ERROR_NO_ENTRIES_TO_MINE, channel.GetName()))
 	}
 
 	// TODO check record signature of each entry
