@@ -29,6 +29,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
@@ -44,6 +45,14 @@ import (
 const (
 	AES_KEY_SIZE_BITS  = 128
 	AES_KEY_SIZE_BYTES = AES_KEY_SIZE_BITS / 8
+
+	ERROR_EXPORT                         = "Export error: %d %s"
+	ERROR_UNSUPPORTED_ENCRYPTION         = "Unsupported encryption: %s"
+	ERROR_UNSUPPORTED_PUBLIC_KEY_TYPE    = "Unsupported Public Key Type: %s"
+	ERROR_UNSUPPORTED_PRIVATE_KEY_TYPE   = "Unsupported Private Key Type: %s"
+	ERROR_UNSUPPORTED_PUBLIC_KEY_FORMAT  = "Unsupported Public Key Format: %s"
+	ERROR_UNSUPPORTED_PRIVATE_KEY_FORMAT = "Unsupported Private Key Format: %s"
+	ERROR_UNSUPPORTED_SIGNATURE          = "Unsupported Signature Algorithm: %s"
 )
 
 func Hash(data []byte) []byte {
@@ -92,7 +101,7 @@ func PublicKeyToRSAPublicKey(key interface{}) (*rsa.PublicKey, error) {
 	case *rsa.PublicKey:
 		return k, nil
 	default:
-		return nil, errors.New("Unsupported public key type")
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_PUBLIC_KEY_TYPE, k))
 	}
 }
 
@@ -143,7 +152,7 @@ func PrivateKeyToRSAPrivateKey(key interface{}) (*rsa.PrivateKey, error) {
 	case *rsa.PrivateKey:
 		return k, nil
 	default:
-		return nil, errors.New("Unsupported private key type")
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_PRIVATE_KEY_TYPE, k))
 	}
 }
 
@@ -167,7 +176,7 @@ func ParseRSAPublicKey(publicKey []byte, format PublicKeyFormat) (*rsa.PublicKey
 	case PublicKeyFormat_UNKNOWN_PUBLIC_KEY_FORMAT:
 		fallthrough
 	default:
-		return nil, errors.New("Unsupported Public Key Format: " + format.String())
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_PUBLIC_KEY_FORMAT, format.String()))
 	}
 }
 
@@ -180,7 +189,7 @@ func ParseRSAPrivateKey(privateKey []byte, format PrivateKeyFormat) (*rsa.Privat
 	case PrivateKeyFormat_UNKNOWN_PRIVATE_KEY_FORMAT:
 		fallthrough
 	default:
-		return nil, errors.New("Unsupported Private Key Format: " + format.String())
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_PRIVATE_KEY_FORMAT, format.String()))
 	}
 }
 
@@ -244,7 +253,7 @@ func GetRSAPrivateKey(directory, alias string, password []byte) (*rsa.PrivateKey
 	case *rsa.PrivateKey:
 		return k, nil
 	default:
-		return nil, errors.New("Unsupported private key type")
+		return nil, errors.New(ERROR_UNSUPPORTED_PRIVATE_KEY_TYPE)
 	}
 }
 
@@ -338,7 +347,7 @@ func ExportKeys(host, keystore, alias string, password []byte) (string, error) {
 		log.Println("Keys exported")
 		return base64.RawURLEncoding.EncodeToString(accessCode), nil
 	default:
-		return "", errors.New("Export status: " + response.Status)
+		return "", errors.New(fmt.Sprintf(ERROR_EXPORT, response.StatusCode, response.Status))
 	}
 }
 
@@ -355,8 +364,8 @@ func ImportKeys(host, keystore, alias, accessCode string) error {
 	if err = proto.Unmarshal(data, keyShare); err != nil {
 		return err
 	}
-	if keyShare.Alias != alias {
-		return errors.New("Incorrect KeyShare Alias")
+	if alias != keyShare.Alias {
+		return errors.New(fmt.Sprintf("Incorrect KeyShare Alias: %s vs %s", alias, keyShare.Alias))
 	}
 	// Decode Access Code
 	decodedAccessCode, err := base64.RawURLEncoding.DecodeString(accessCode)
@@ -403,7 +412,7 @@ func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		return callback(entry, nil, record.Payload)
 	default:
-		return errors.New("Unsupported encryption: " + record.EncryptionAlgorithm.String())
+		return errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_ENCRYPTION, record.EncryptionAlgorithm.String()))
 	}
 }
 
@@ -415,7 +424,7 @@ func DecryptKey(access *Record_Access, key *rsa.PrivateKey) ([]byte, error) {
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		return access.SecretKey, nil
 	default:
-		return nil, errors.New("Unsupported encryption" + access.EncryptionAlgorithm.String())
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_ENCRYPTION, access.EncryptionAlgorithm.String()))
 	}
 }
 
@@ -426,7 +435,7 @@ func DecryptPayload(entry *BlockEntry, key []byte) ([]byte, error) {
 	case EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		return entry.Record.Payload, nil
 	default:
-		return nil, errors.New("Unsupported encryption: " + entry.Record.EncryptionAlgorithm.String())
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_ENCRYPTION, entry.Record.EncryptionAlgorithm.String()))
 	}
 }
 
@@ -496,7 +505,7 @@ func CreateSignature(privateKey *rsa.PrivateKey, data []byte, algorithm Signatur
 	case SignatureAlgorithm_UNKNOWN_SIGNATURE:
 		fallthrough
 	default:
-		return nil, errors.New("Unknown Signature")
+		return nil, errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_SIGNATURE, algorithm))
 	}
 }
 
@@ -511,7 +520,7 @@ func VerifySignature(publicKey *rsa.PublicKey, data, signature []byte, algorithm
 	case SignatureAlgorithm_UNKNOWN_SIGNATURE:
 		fallthrough
 	default:
-		return errors.New("Unknown Signature")
+		return errors.New(fmt.Sprintf(ERROR_UNSUPPORTED_SIGNATURE, algorithm))
 	}
 }
 
