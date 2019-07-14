@@ -232,10 +232,8 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 	for {
 		count, err := reader.Read(payload)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return 0, err
+			log.Println(err)
+			break
 		}
 		size = size + count
 		key, record, err := CreateRecord(creatorAlias, creatorKey, access, references, payload[:count])
