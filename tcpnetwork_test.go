@@ -248,7 +248,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 		cache.PutBlock(hash, block)
 		channel.SetHead(hash)
 
-		testinggo.AssertError(t, "dial tcp 127.0.0.1:23232: connect: connection refused", bcgo.Push(channel, cache, network))
+		testinggo.AssertMatchesError(t, "dial tcp .*:23232: connect: connection refused", bcgo.Push(channel, cache, network))
 	})
 	t.Run("LocalRemoteEqualLength", func(t *testing.T) {
 		block1 := makeBlock(t, 1234)
