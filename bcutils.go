@@ -200,7 +200,12 @@ func GetPeers(directory string) ([]string, error) {
 		if IsDebug() {
 			filename = "test-peers"
 		}
-		data, err := ioutil.ReadFile(path.Join(directory, filename))
+		filepath := path.Join(directory, filename)
+		if _, err := os.Stat(filepath); os.IsNotExist(err) {
+			return []string{}, nil
+		}
+
+		data, err := ioutil.ReadFile(filepath)
 		if err != nil {
 			return nil, err
 		}

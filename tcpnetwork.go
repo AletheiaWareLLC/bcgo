@@ -151,7 +151,7 @@ func (t *TcpNetwork) Broadcast(channel Channel, cache Cache, hash []byte, block 
 						return errors.New(ERROR_CHANNEL_OUT_OF_DATE)
 						// TODO re-mine all dropped records into new blocks on top of new head
 					} else {
-						// Option C: remote points to a shorter chain, and cannot update because the host is missing some blocks
+						// Option C: remote points to a shorter chain, and cannot update because the chain cannot be verified or the host is missing some blocks
 						block = referencedBlock
 					}
 				}
