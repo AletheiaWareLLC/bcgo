@@ -31,6 +31,7 @@ type MemoryCache struct {
 	Block   map[string]*Block
 	Head    map[string]*Reference
 	Entries map[string][]*BlockEntry
+	Mapping map[string]*Block
 }
 
 func NewMemoryCache(size int) *MemoryCache {
@@ -41,6 +42,7 @@ func NewMemoryCache(size int) *MemoryCache {
 		Block:   make(map[string]*Block, size),
 		Head:    make(map[string]*Reference, size),
 		Entries: make(map[string][]*BlockEntry, size),
+		Mapping: make(map[string]*Block, size),
 	}
 }
 
@@ -63,6 +65,15 @@ func (m *MemoryCache) GetBlockEntries(channel string, timestamp uint64) ([]*Bloc
 	return results, nil
 }
 
+func (m *MemoryCache) GetBlockContainingRecord(channel string, hash []byte) (*Block, error) {
+	key := base64.RawURLEncoding.EncodeToString(hash)
+	block, ok := m.Mapping[key]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf(ERROR_BLOCK_NOT_FOUND, key))
+	}
+	return block, nil
+}
+
 func (m *MemoryCache) GetHead(channel string) (*Reference, error) {
 	reference, ok := m.Head[channel]
 	if !ok {
@@ -73,6 +84,9 @@ func (m *MemoryCache) GetHead(channel string) (*Reference, error) {
 
 func (m *MemoryCache) PutBlock(hash []byte, block *Block) error {
 	m.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+	for _, e := range block.Entry {
+		m.Mapping[base64.RawURLEncoding.EncodeToString(e.RecordHash)] = block
+	}
 	return nil
 }
 

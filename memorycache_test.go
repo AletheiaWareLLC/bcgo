@@ -128,6 +128,30 @@ func TestMemoryCachePutBlockEntry(t *testing.T) {
 	}
 }
 
+func TestMemoryCacheGetBlockContainingRecord(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
+		mc := bcgo.NewMemoryCache(SIZE)
+		hash := []byte("FOOBAR")
+		_, err := mc.GetBlockContainingRecord("TEST", hash)
+		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_BLOCK_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
+	})
+	t.Run("Exists", func(t *testing.T) {
+		mc := bcgo.NewMemoryCache(SIZE)
+		block := makeBlock(t, 1234)
+		record := makeRecord(t)
+		recordHash := makeHash(t, record)
+		block.Entry = append(block.Entry, &bcgo.BlockEntry{
+			Record:     record,
+			RecordHash: recordHash,
+		})
+		hash := makeHash(t, block)
+		testinggo.AssertNoError(t, mc.PutBlock(hash, block))
+		b, err := mc.GetBlockContainingRecord("TEST", recordHash)
+		testinggo.AssertNoError(t, err)
+		testinggo.AssertProtobufEqual(t, block, b)
+	})
+}
+
 func TestMemoryCacheGetHead(t *testing.T) {
 	mc := bcgo.NewMemoryCache(SIZE)
 	_, err := mc.GetHead("TEST")

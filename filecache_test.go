@@ -161,6 +161,35 @@ func TestFileCachePutBlockEntry(t *testing.T) {
 	}
 }
 
+func TestFileCacheGetBlockContainingRecord(t *testing.T) {
+	t.Run("Empty", func(t *testing.T) {
+		cacheDir := makeCacheDir(t)
+		defer unmakeCacheDir(t, cacheDir)
+		fc, err := bcgo.NewFileCache(cacheDir)
+		testinggo.AssertNoError(t, err)
+		_, err = fc.GetBlockContainingRecord("TEST", []byte("FOOBAR"))
+		testinggo.AssertMatchesError(t, "^.*: no such file or directory", err)
+	})
+	t.Run("Exists", func(t *testing.T) {
+		cacheDir := makeCacheDir(t)
+		defer unmakeCacheDir(t, cacheDir)
+		fc, err := bcgo.NewFileCache(cacheDir)
+		testinggo.AssertNoError(t, err)
+		block := makeBlock(t, 1234)
+		record := makeRecord(t)
+		recordHash := makeHash(t, record)
+		block.Entry = append(block.Entry, &bcgo.BlockEntry{
+			Record:     record,
+			RecordHash: recordHash,
+		})
+		hash := makeHash(t, block)
+		testinggo.AssertNoError(t, fc.PutBlock(hash, block))
+		b, err := fc.GetBlockContainingRecord("TEST", recordHash)
+		testinggo.AssertNoError(t, err)
+		testinggo.AssertProtobufEqual(t, block, b)
+	})
+}
+
 func TestFileCacheGetHead(t *testing.T) {
 	cacheDir := makeCacheDir(t)
 	defer unmakeCacheDir(t, cacheDir)

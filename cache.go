@@ -20,6 +20,7 @@ type Cache interface {
 	GetHead(channel string) (*Reference, error)
 	GetBlock(hash []byte) (*Block, error)
 	GetBlockEntries(channel string, timestamp uint64) ([]*BlockEntry, error)
+	GetBlockContainingRecord(channel string, hash []byte) (*Block, error)
 	PutHead(channel string, reference *Reference) error
 	PutBlock(hash []byte, block *Block) error
 	PutBlockEntry(channel string, entry *BlockEntry) error

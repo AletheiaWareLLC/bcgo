@@ -43,6 +43,7 @@ type MockCache struct {
 	PutBlockError      error
 	PutBlockEntryError error
 	DeleteBlockError   error
+	RecordToBlock      map[string]*bcgo.Block
 }
 
 func (m *MockCache) GetBlock(hash []byte) (*bcgo.Block, error) {
@@ -74,6 +75,10 @@ func (m *MockCache) GetBlockEntries(channel string, timestamp uint64) ([]*bcgo.B
 	m.Channel = append(m.Channel, channel)
 	m.EntryTimes = append(m.EntryTimes, timestamp)
 	return m.Entries[channel][:], nil
+}
+
+func (m *MockCache) GetBlockContainingRecord(channel string, hash []byte) (*bcgo.Block, error) {
+	return m.RecordToBlock[base64.RawURLEncoding.EncodeToString(hash)], nil
 }
 
 func (m *MockCache) PutBlock(hash []byte, block *bcgo.Block) error {

@@ -88,6 +88,14 @@ func (f *FileCache) GetBlockEntries(channel string, timestamp uint64) ([]*BlockE
 	return entries, nil
 }
 
+func (f *FileCache) GetBlockContainingRecord(channel string, hash []byte) (*Block, error) {
+	data, err := ioutil.ReadFile(path.Join(f.Directory, "mapping", base64.RawURLEncoding.EncodeToString([]byte(channel)), base64.RawURLEncoding.EncodeToString(hash)))
+	if err != nil {
+		return nil, err
+	}
+	return f.GetBlock(data)
+}
+
 func (f *FileCache) GetHead(channel string) (*Reference, error) {
 	// Read from file
 	data, err := ioutil.ReadFile(path.Join(f.Directory, "channel", base64.RawURLEncoding.EncodeToString([]byte(channel))))
@@ -103,6 +111,17 @@ func (f *FileCache) GetHead(channel string) (*Reference, error) {
 }
 
 func (f *FileCache) PutBlock(hash []byte, block *Block) error {
+	directory := path.Join(f.Directory, "mapping", base64.RawURLEncoding.EncodeToString([]byte(block.ChannelName)))
+	// Create mapping directory
+	if err := os.MkdirAll(directory, os.ModePerm); err != nil {
+		return err
+	}
+	// Add record -> block mapping
+	for _, e := range block.Entry {
+		if err := ioutil.WriteFile(path.Join(directory, base64.RawURLEncoding.EncodeToString(e.RecordHash)), hash, os.ModePerm); err != nil {
+			return err
+		}
+	}
 	// Marshal into byte array
 	data, err := proto.Marshal(block)
 	if err != nil {
