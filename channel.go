@@ -212,8 +212,39 @@ func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block
 		return nil, err
 	}
 
-	err = cache.PutBlock(hash, b)
+	if err := cache.PutBlock(hash, b); err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+func GetBlockContainingRecord(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
+	b, err := cache.GetBlockContainingRecord(channel, hash)
 	if err != nil {
+		if network == nil {
+			return nil, err
+		} else {
+			fmt.Println(err)
+		}
+	} else {
+		return b, nil
+	}
+
+	b, err = network.GetBlock(&Reference{
+		ChannelName: channel,
+		RecordHash:  hash,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	bh, err := HashProtobuf(b)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cache.PutBlock(bh, b); err != nil {
 		return nil, err
 	}
 
