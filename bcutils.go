@@ -120,6 +120,18 @@ func TimestampToString(timestamp uint64) string {
 	return time.Unix(0, int64(timestamp)).Format("2006-01-02 15:04:05")
 }
 
+func MoneyToString(currency string, amount int64) string {
+	if amount == 0 {
+		return "Free"
+	}
+	s := "?"
+	switch currency {
+	case "usd":
+		s = fmt.Sprintf("$%.2f", float64(amount)/100.0)
+	}
+	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
+}
+
 func IsDebug() bool {
 	debug, ok := os.LookupEnv("DEBUG")
 	if !ok {

@@ -94,6 +94,29 @@ func TestTimestampToString(t *testing.T) {
 	}
 }
 
+func TestMoneyToString(t *testing.T) {
+	moneyTests := []struct {
+		given    int64
+		expected string
+	}{
+		{0, "Free"},
+		{1, "$0.01"},
+		{64, "$0.64"},
+		{1234, "$12.34"},
+		{56789, "$567.89"},
+		{1234567, "$12345.67"},
+		{8901234567, "$89012345.67"},
+		{8901234567890, "$89012345678.9"},
+		// TODO test negative amounts
+	}
+	for _, test := range moneyTests {
+		got := bcgo.MoneyToString("usd", test.given)
+		if got != test.expected {
+			t.Fatalf("expected %s, instead got %s", test.expected, got)
+		}
+	}
+}
+
 func TestGetAlias(t *testing.T) {
 	t.Run("EnvUnset", func(t *testing.T) {
 		unsetEnv(t, "ALIAS")
