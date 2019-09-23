@@ -92,7 +92,7 @@ func TestNodeWrite(t *testing.T) {
 		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
 		payload := make([]byte, bcgo.MAX_PAYLOAD_SIZE_BYTES+1)
 		_, err := node.Write(channel, nil, nil, payload)
-		testinggo.AssertError(t, "Payload too large: 10.00Mb max: 10.00Mb", err)
+		testinggo.AssertError(t, "Payload too large: 10MiB max: 10MiB", err)
 		if len(cache.Entries) != 0 {
 			t.Fatalf("Entry written to cache")
 		}
@@ -188,7 +188,7 @@ func TestNodeMine(t *testing.T) {
 
 		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
 		_, _, err = node.Mine(channel, nil)
-		testinggo.AssertError(t, "Block too large: 2.00Gb max: 2.00Gb", err)
+		testinggo.AssertError(t, "Block too large: 2GiB max: 2GiB", err)
 	})
 
 	t.Run("ChannelHead", func(t *testing.T) {

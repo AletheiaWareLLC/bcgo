@@ -52,33 +52,68 @@ func Ones(data []byte) uint64 {
 	return count
 }
 
-func SizeToString(size uint64) string {
+func BinarySizeToString(size uint64) string {
+	if size == 1 {
+		return "1Byte"
+	}
 	if size <= 1024 {
-		return fmt.Sprintf("%dbytes", size)
+		return fmt.Sprintf("%dBytes", size)
 	}
 	var unit string
 	s := float64(size)
 	if s >= 1024 {
 		s = s / 1024
-		unit = "Kb"
+		unit = "KiB"
 	}
 	if s >= 1024 {
 		s = s / 1024
-		unit = "Mb"
+		unit = "MiB"
 	}
 	if s >= 1024 {
 		s = s / 1024
-		unit = "Gb"
+		unit = "GiB"
 	}
 	if s >= 1024 {
 		s = s / 1024
-		unit = "Tb"
+		unit = "TiB"
 	}
 	if s >= 1024 {
 		s = s / 1024
-		unit = "Pb"
+		unit = "PiB"
 	}
-	return fmt.Sprintf("%.2f%s", s, unit)
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", s), "0"), ".") + unit
+}
+
+func DecimalSizeToString(size uint64) string {
+	if size == 1 {
+		return "1Byte"
+	}
+	if size <= 1000 {
+		return fmt.Sprintf("%dBytes", size)
+	}
+	var unit string
+	s := float64(size)
+	if s >= 1000 {
+		s = s / 1000
+		unit = "KB"
+	}
+	if s >= 1000 {
+		s = s / 1000
+		unit = "MB"
+	}
+	if s >= 1000 {
+		s = s / 1000
+		unit = "GB"
+	}
+	if s >= 1000 {
+		s = s / 1000
+		unit = "TB"
+	}
+	if s >= 1000 {
+		s = s / 1000
+		unit = "PB"
+	}
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", s), "0"), ".") + unit
 }
 
 func TimestampToString(timestamp uint64) string {
@@ -255,7 +290,7 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, nil, errors.New("Payload too large: " + SizeToString(size) + " max: " + SizeToString(MAX_PAYLOAD_SIZE_BYTES))
+		return nil, nil, errors.New("Payload too large: " + BinarySizeToString(size) + " max: " + BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
 	acl := make([]*Record_Access, 0, len(access))
 	var key []byte
@@ -370,7 +405,7 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 func WriteDelimitedProtobuf(writer *bufio.Writer, source proto.Message) error {
 	size := uint64(proto.Size(source))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return errors.New("Protobuf too large: " + SizeToString(size) + " max: " + SizeToString(MAX_BLOCK_SIZE_BYTES))
+		return errors.New("Protobuf too large: " + BinarySizeToString(size) + " max: " + BinarySizeToString(MAX_BLOCK_SIZE_BYTES))
 	}
 
 	data, err := proto.Marshal(source)

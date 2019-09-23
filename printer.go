@@ -27,7 +27,7 @@ type PrintingMiningListener struct {
 }
 
 func (p *PrintingMiningListener) OnMiningStarted(channel ThresholdChannel, size uint64) {
-	fmt.Fprintf(p.Output, "Mining %s %s\n", channel.GetName(), SizeToString(size))
+	fmt.Fprintf(p.Output, "Mining %s %s\n", channel.GetName(), BinarySizeToString(size))
 }
 
 func (p *PrintingMiningListener) OnNewMaxOnes(channel ThresholdChannel, nonce, ones uint64) {

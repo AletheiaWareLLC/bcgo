@@ -39,22 +39,46 @@ func unsetEnv(t *testing.T, key string) {
 	os.Unsetenv(key)
 }
 
-func TestSizeToString(t *testing.T) {
+func TestBinarySizeToString(t *testing.T) {
 	sizeTests := []struct {
 		given    uint64
 		expected string
 	}{
-		{0, "0bytes"},
-		{64, "64bytes"},
-		{1234, "1.21Kb"},
-		{56789, "55.46Kb"},
-		{1234567, "1.18Mb"},
-		{8901234567, "8.29Gb"},
-		{8901234567890, "8.10Tb"},
-		{12345678901234567, "10.97Pb"},
+		{0, "0Bytes"},
+		{1, "1Byte"},
+		{64, "64Bytes"},
+		{1234, "1.21KiB"},
+		{56789, "55.46KiB"},
+		{1234567, "1.18MiB"},
+		{8901234567, "8.29GiB"},
+		{8901234567890, "8.1TiB"},
+		{12345678901234567, "10.97PiB"},
 	}
 	for _, test := range sizeTests {
-		got := bcgo.SizeToString(test.given)
+		got := bcgo.BinarySizeToString(test.given)
+		if got != test.expected {
+			t.Fatalf("expected %s, instead got %s", test.expected, got)
+		}
+	}
+}
+
+func TestDecimalSizeToString(t *testing.T) {
+	sizeTests := []struct {
+		given    uint64
+		expected string
+	}{
+		{0, "0Bytes"},
+		{1, "1Byte"},
+		{64, "64Bytes"},
+		{1234, "1.23KB"},
+		{56789, "56.79KB"},
+		{1234567, "1.23MB"},
+		{8901234567, "8.9GB"},
+		{8901234567890, "8.9TB"},
+		{12345678901234567, "12.35PB"},
+	}
+	for _, test := range sizeTests {
+		got := bcgo.DecimalSizeToString(test.given)
 		if got != test.expected {
 			t.Fatalf("expected %s, instead got %s", test.expected, got)
 		}

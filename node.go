@@ -96,7 +96,7 @@ func (n *Node) GetChannels() []Channel {
 func (n *Node) Write(channel ThresholdChannel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, SizeToString(size), SizeToString(MAX_PAYLOAD_SIZE_BYTES)))
+		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES)))
 	}
 	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
 	if err != nil {
@@ -163,7 +163,7 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 
 	size := uint64(proto.Size(block))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, errors.New(fmt.Sprintf(ERROR_BLOCK_TOO_LARGE, SizeToString(size), SizeToString(MAX_BLOCK_SIZE_BYTES)))
+		return nil, nil, errors.New(fmt.Sprintf(ERROR_BLOCK_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_BLOCK_SIZE_BYTES)))
 	}
 
 	if listener != nil {
