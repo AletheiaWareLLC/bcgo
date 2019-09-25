@@ -164,6 +164,16 @@ func Iterate(channel string, hash []byte, block *Block, cache Cache, network Net
 	return nil
 }
 
+func LoadCachedHead(channel Channel, cache Cache) error {
+	reference, err := cache.GetHead(channel.GetName())
+	if err != nil {
+		return err
+	}
+	channel.SetTimestamp(reference.Timestamp)
+	channel.SetHead(reference.BlockHash)
+	return nil
+}
+
 func LoadHead(channel Channel, cache Cache, network Network) error {
 	reference, err := GetHeadReference(channel.GetName(), cache, network)
 	if err != nil {
