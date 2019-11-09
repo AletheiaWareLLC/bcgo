@@ -38,7 +38,8 @@ type Channel interface {
 	SetHead([]byte)
 	GetTimestamp() uint64
 	SetTimestamp(uint64)
-	Validate(cache Cache, network Network, hash []byte, block *Block) error
+	GetValidators() []Validator
+	AddValidator(Validator)
 }
 
 func Update(channel Channel, cache Cache, network Network, hash []byte, block *Block) error {
@@ -67,8 +68,10 @@ func Update(channel Channel, cache Cache, network Network, hash []byte, block *B
 		}
 	}
 
-	if err := channel.Validate(cache, network, hash, block); err != nil {
-		return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
+	for _, v := range channel.GetValidators() {
+		if err := v.Validate(channel, cache, network, hash, block); err != nil {
+			return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
+		}
 	}
 
 	channel.SetTimestamp(block.Timestamp)

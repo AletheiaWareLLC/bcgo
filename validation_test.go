@@ -14,9 +14,16 @@
  * limitations under the License.
  */
 
-package bcgo
+package bcgo_test
 
-type ThresholdChannel interface {
-	Channel
-	GetThreshold() uint64
+import (
+	"github.com/AletheiaWareLLC/bcgo"
+)
+
+type MockValidator struct {
+	ValidError error
+}
+
+func (m *MockValidator) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
+	return m.ValidError
 }

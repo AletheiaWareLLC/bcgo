@@ -24,7 +24,6 @@ import (
 	"github.com/AletheiaWareLLC/bcgo"
 	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/AletheiaWareLLC/testinggo"
-	"strconv"
 	"testing"
 )
 
@@ -38,54 +37,6 @@ func makeNode(t *testing.T, a string, key *rsa.PrivateKey, cache bcgo.Cache, net
 	}
 }
 
-func makeMockThresholdChannel(t *testing.T, threshold uint64) *MockThresholdChannel {
-	return &MockThresholdChannel{
-		Name:      "TEST",
-		Threshold: threshold,
-	}
-}
-
-type MockThresholdChannel struct {
-	Name       string
-	Threshold  uint64
-	Timestamp  uint64
-	HeadHash   []byte
-	HeadBlock  *bcgo.Block
-	ValidError error
-}
-
-func (m *MockThresholdChannel) GetName() string {
-	return m.Name
-}
-
-func (m *MockThresholdChannel) GetTimestamp() uint64 {
-	return m.Timestamp
-}
-
-func (m *MockThresholdChannel) SetTimestamp(timestamp uint64) {
-	m.Timestamp = timestamp
-}
-
-func (m *MockThresholdChannel) GetHead() []byte {
-	return m.HeadHash
-}
-
-func (m *MockThresholdChannel) SetHead(hash []byte) {
-	m.HeadHash = hash
-}
-
-func (m *MockThresholdChannel) GetThreshold() uint64 {
-	return m.Threshold
-}
-
-func (m *MockThresholdChannel) String() string {
-	return m.Name + " " + strconv.FormatUint(m.Threshold, 10)
-}
-
-func (m *MockThresholdChannel) Validate(cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
-	return m.ValidError
-}
-
 func TestNodeWrite(t *testing.T) {
 	t.Run("PayloadTooBig", func(t *testing.T) {
 		key, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -94,7 +45,7 @@ func TestNodeWrite(t *testing.T) {
 		}
 		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", key, cache, nil)
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
+		channel := makeMockChannel(t)
 		payload := make([]byte, bcgo.MAX_PAYLOAD_SIZE_BYTES+1)
 		_, err = node.Write(0, channel, nil, nil, payload)
 		testinggo.AssertError(t, "Payload too large: 10MiB max: 10MiB", err)
@@ -108,7 +59,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 	t.Run("NoHead", func(t *testing.T) {
 		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
+		channel := makeMockChannel(t)
 
 		time, err := node.GetLastMinedTimestamp(channel)
 		testinggo.AssertNoError(t, err)
@@ -130,7 +81,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 		hash := makeHash(t, block)
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
+		channel := makeMockChannel(t)
 		channel.SetHead(hash)
 
 		time, err := node.GetLastMinedTimestamp(channel)
@@ -163,7 +114,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 		hash2 := makeHash(t, block2)
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash2)] = block2
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
+		channel := makeMockChannel(t)
 		channel.SetHead(hash2)
 
 		time, err := node.GetLastMinedTimestamp(channel)
@@ -191,8 +142,8 @@ func TestNodeMine(t *testing.T) {
 			},
 		}
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
-		_, _, err = node.Mine(channel, nil)
+		channel := makeMockChannel(t)
+		_, _, err = node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 		testinggo.AssertError(t, "Block too large: 2GiB max: 2GiB", err)
 	})
 
@@ -221,9 +172,9 @@ func TestNodeMine(t *testing.T) {
 			},
 		}
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
+		channel := makeMockChannel(t)
 		channel.SetHead(hash1)
-		hash2, block2, err := node.Mine(channel, nil)
+		hash2, block2, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 		testinggo.AssertNoError(t, err)
 		if hash2 == nil {
 			t.Fatalf("Mined block hash is nil")
@@ -264,8 +215,8 @@ func TestNodeMine(t *testing.T) {
 			},
 		}
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
-		_, block, err := node.Mine(channel, nil)
+		channel := makeMockChannel(t)
+		_, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 		testinggo.AssertNoError(t, err)
 		if block.Length != 1 {
 			t.Fatalf("Incorrect length; expected 1, got '%d'", block.Length)
@@ -306,8 +257,8 @@ func TestNodeMine(t *testing.T) {
 			},
 		}
 
-		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
-		_, block, err := node.Mine(channel, nil)
+		channel := makeMockChannel(t)
+		_, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 		testinggo.AssertNoError(t, err)
 		if block.Length != 1 {
 			t.Fatalf("Incorrect length; expected 1, got '%d'", block.Length)

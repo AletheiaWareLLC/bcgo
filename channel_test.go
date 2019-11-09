@@ -33,47 +33,11 @@ func AssertNilHead(t *testing.T, channel bcgo.Channel) {
 	}
 }
 
-func makeMockChannel(t *testing.T) *MockChannel {
+func makeMockChannel(t *testing.T) *ExampleChannel {
 	t.Helper()
-	return &MockChannel{
+	return &ExampleChannel{
 		Name: "TEST",
 	}
-}
-
-type MockChannel struct {
-	Name       string
-	Timestamp  uint64
-	HeadHash   []byte
-	HeadBlock  *bcgo.Block
-	ValidError error
-}
-
-func (m *MockChannel) String() string {
-	return m.Name
-}
-
-func (m *MockChannel) GetName() string {
-	return m.Name
-}
-
-func (m *MockChannel) GetTimestamp() uint64 {
-	return m.Timestamp
-}
-
-func (m *MockChannel) SetTimestamp(timestamp uint64) {
-	m.Timestamp = timestamp
-}
-
-func (m *MockChannel) GetHead() []byte {
-	return m.HeadHash
-}
-
-func (m *MockChannel) SetHead(hash []byte) {
-	m.HeadHash = hash
-}
-
-func (m *MockChannel) Validate(cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
-	return m.ValidError
 }
 
 func TestChannelGetHead(t *testing.T) {
@@ -150,7 +114,9 @@ func TestChannelUpdate(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
-		channel.ValidError = errors.New("Foo Bar")
+		channel.AddValidator(&MockValidator{
+			ValidError: errors.New("Foo Bar"),
+		})
 
 		testinggo.AssertError(t, "Chain invalid: Foo Bar", bcgo.Update(channel, nil, nil, hash, block))
 	})

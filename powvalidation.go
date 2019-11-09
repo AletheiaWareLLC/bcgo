@@ -19,41 +19,22 @@ package bcgo
 import (
 	"errors"
 	"fmt"
-	"strconv"
 )
 
 const (
 	ERROR_HASH_TOO_WEAK = "Hash doesn't meet Proof-of-Work threshold: %d vs %d"
 )
 
-type PoWChannel struct {
-	Name      string
+type PoWValidator struct {
 	Threshold uint64
-	HeadHash  []byte
-	Timestamp uint64
 }
 
-func OpenPoWChannel(name string, threshold uint64) *PoWChannel {
-	return &PoWChannel{
-		Name:      name,
-		Threshold: threshold,
-	}
-}
-
-func (p *PoWChannel) GetName() string {
-	return p.Name
-}
-
-func (p *PoWChannel) GetThreshold() uint64 {
+func (p *PoWValidator) GetThreshold() uint64 {
 	return p.Threshold
 }
 
-func (p *PoWChannel) String() string {
-	return p.Name + " " + strconv.FormatUint(p.Threshold, 10)
-}
-
-func (p *PoWChannel) Validate(cache Cache, network Network, hash []byte, block *Block) error {
-	return Iterate(p.Name, hash, block, cache, network, func(h []byte, b *Block) error {
+func (p *PoWValidator) Validate(channel Channel, cache Cache, network Network, hash []byte, block *Block) error {
+	return Iterate(channel.GetName(), hash, block, cache, network, func(h []byte, b *Block) error {
 		// Check hash ones pass threshold
 		ones := Ones(h)
 		if ones < p.Threshold {
@@ -61,20 +42,4 @@ func (p *PoWChannel) Validate(cache Cache, network Network, hash []byte, block *
 		}
 		return nil
 	})
-}
-
-func (p *PoWChannel) GetHead() []byte {
-	return p.HeadHash
-}
-
-func (p *PoWChannel) SetHead(hash []byte) {
-	p.HeadHash = hash
-}
-
-func (p *PoWChannel) GetTimestamp() uint64 {
-	return p.Timestamp
-}
-
-func (p *PoWChannel) SetTimestamp(Timestamp uint64) {
-	p.Timestamp = Timestamp
 }

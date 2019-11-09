@@ -24,32 +24,18 @@ import (
 	"testing"
 )
 
-func makePoWChannel(t *testing.T, threshold uint64) *bcgo.PoWChannel {
-	return &bcgo.PoWChannel{
-		Name:      "TEST",
-		Threshold: threshold,
+func makePoWChannel(t *testing.T, threshold uint64) bcgo.Channel {
+	return &ExampleChannel{
+		Name: "TEST",
+		Validators: []bcgo.Validator{
+			&bcgo.PoWValidator{
+				Threshold: threshold,
+			},
+		},
 	}
 }
 
-func TestPoWChannelGetName(t *testing.T) {
-	channel := makePoWChannel(t, bcgo.THRESHOLD_STANDARD)
-	expected := "TEST"
-	actual := channel.GetName()
-	if actual != expected {
-		t.Fatalf("Wrong channel name: expected '%s' , instead got '%s'", expected, actual)
-	}
-}
-
-func TestPoWChannelString(t *testing.T) {
-	channel := makePoWChannel(t, bcgo.THRESHOLD_STANDARD)
-	expected := "TEST 288"
-	actual := channel.String()
-	if actual != expected {
-		t.Fatalf("Wrong channel string: expected '%s' , instead got '%s'", expected, actual)
-	}
-}
-
-func TestPoWChannelValid(t *testing.T) {
+func TestPoWValidationValid(t *testing.T) {
 	t.Run("HashAboveThreshold", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)

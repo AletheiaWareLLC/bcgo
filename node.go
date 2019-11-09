@@ -34,9 +34,9 @@ const (
 )
 
 type MiningListener interface {
-	OnMiningStarted(channel ThresholdChannel, size uint64)
-	OnNewMaxOnes(channel ThresholdChannel, nonce, ones uint64)
-	OnMiningThresholdReached(channel ThresholdChannel, hash []byte, block *Block)
+	OnMiningStarted(channel Channel, size uint64)
+	OnNewMaxOnes(channel Channel, nonce, ones uint64)
+	OnMiningThresholdReached(channel Channel, hash []byte, block *Block)
 }
 
 type Node struct {
@@ -44,7 +44,7 @@ type Node struct {
 	Key      *rsa.PrivateKey
 	Cache    Cache
 	Network  Network
-	Channels map[string]ThresholdChannel
+	Channels map[string]Channel
 }
 
 func GetNode(directory string, cache Cache, network Network) (*Node, error) {
@@ -67,15 +67,15 @@ func GetNode(directory string, cache Cache, network Network) (*Node, error) {
 		Key:      key,
 		Cache:    cache,
 		Network:  network,
-		Channels: make(map[string]ThresholdChannel),
+		Channels: make(map[string]Channel),
 	}, nil
 }
 
-func (n *Node) AddChannel(channel ThresholdChannel) {
+func (n *Node) AddChannel(channel Channel) {
 	n.Channels[channel.GetName()] = channel
 }
 
-func (n *Node) GetChannel(name string) (ThresholdChannel, error) {
+func (n *Node) GetChannel(name string) (Channel, error) {
 	c, ok := n.Channels[name]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(ERROR_NO_SUCH_CHANNEL, name))
@@ -97,7 +97,7 @@ func (n *Node) GetChannels() []Channel {
 	return channels
 }
 
-func (n *Node) Write(timestamp uint64, channel ThresholdChannel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
+func (n *Node) Write(timestamp uint64, channel Channel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
 		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES)))
@@ -109,7 +109,7 @@ func (n *Node) Write(timestamp uint64, channel ThresholdChannel, acl map[string]
 	return WriteRecord(channel.GetName(), n.Cache, record)
 }
 
-func (n *Node) GetLastMinedTimestamp(channel ThresholdChannel) (uint64, error) {
+func (n *Node) GetLastMinedTimestamp(channel Channel) (uint64, error) {
 	var timestamp uint64
 	// Iterate through the chain to find the most recent block mined by this node
 	if err := Iterate(channel.GetName(), channel.GetHead(), nil, n.Cache, n.Network, func(h []byte, b *Block) error {
@@ -130,7 +130,7 @@ func (n *Node) GetLastMinedTimestamp(channel ThresholdChannel) (uint64, error) {
 	return timestamp, nil
 }
 
-func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, *Block, error) {
+func (n *Node) Mine(channel Channel, threshold uint64, listener MiningListener) ([]byte, *Block, error) {
 	timestamp, err := n.GetLastMinedTimestamp(channel)
 	if err != nil {
 		return nil, nil, err
@@ -188,7 +188,7 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 			}
 			max = ones
 		}
-		if ones > channel.GetThreshold() {
+		if ones > threshold {
 			if listener != nil {
 				listener.OnMiningThresholdReached(channel, hash, block)
 			}

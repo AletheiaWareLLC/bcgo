@@ -39,9 +39,8 @@ func ExampleNode() {
 		log.Fatal("Could not create file cache:", err)
 	}
 
-	channel := &bcgo.PoWChannel{
-		Name:      "Example",
-		Threshold: bcgo.THRESHOLD_STANDARD,
+	channel := &ExampleChannel{
+		Name: "Example",
 	}
 
 	// Write record to cache
@@ -66,7 +65,7 @@ func ExampleNode() {
 	}
 
 	// Mine all records in cache
-	hash, block, err := node.Mine(channel, nil)
+	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 	if err != nil {
 		log.Fatal("Could not mine:", err)
 	}
@@ -95,9 +94,8 @@ func ExampleNode_Network() {
 		},
 	}
 
-	channel := &bcgo.PoWChannel{
-		Name:      "Example",
-		Threshold: bcgo.THRESHOLD_STANDARD,
+	channel := &ExampleChannel{
+		Name: "Example",
 	}
 
 	// Write record to cache
@@ -122,7 +120,7 @@ func ExampleNode_Network() {
 	}
 
 	// Mine all records in cache
-	hash, block, err := node.Mine(channel, nil)
+	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
 	if err != nil {
 		log.Fatal("Could not mine:", err)
 	}
