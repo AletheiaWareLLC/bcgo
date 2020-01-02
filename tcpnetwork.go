@@ -107,7 +107,7 @@ func (t *TcpNetwork) GetBlock(reference *Reference) (*Block, error) {
 	return nil, errors.New("Could not get " + reference.ChannelName + " block from peers")
 }
 
-func (t *TcpNetwork) Broadcast(channel Channel, cache Cache, hash []byte, block *Block) error {
+func (t *TcpNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block *Block) error {
 	for _, peer := range t.Peers {
 		if len(peer) > 0 {
 			address := peer + ":" + strconv.Itoa(PORT_BROADCAST)

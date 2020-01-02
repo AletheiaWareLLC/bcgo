@@ -17,41 +17,235 @@
 package bcgo
 
 import (
-	//"errors"
-	//"fmt"
-	//"strconv"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"github.com/AletheiaWareLLC/cryptogo"
+	"github.com/golang/protobuf/proto"
+	"log"
+	"strings"
 	"time"
 )
 
-const (
-	PERIOD_HOURLY = time.Hour
-	PERIOD_DAILY  = PERIOD_HOURLY * 24
-	PERIOD_YEARLY = PERIOD_HOURLY * 6366 // (265.25 * 24)
+// Periodic Validation Chains strengthen the Network by increasing the computational resources needed to attack it.
 
-	THRESHOLD_PERIOD_HOUR = THRESHOLD_STANDARD
-	THRESHOLD_PERIOD_DAY  = THRESHOLD_HARD
-	THRESHOLD_PERIOD_YEAR = THRESHOLD_HARDEST
+const (
+	ERROR_MISSING_VALIDATED_BLOCK = "Missing Validated Block %s"
+
+	PERIOD_HOURLY       = time.Hour
+	PERIOD_DAILY        = PERIOD_HOURLY * 24
+	PERIOD_YEARLY       = PERIOD_HOURLY * 8766   // (365.25 * 24)
+	PERIOD_CENTENNIALLY = PERIOD_HOURLY * 876600 // (100 * 365.25 * 24)
+
+	THRESHOLD_PERIOD_HOUR    = THRESHOLD_EASY
+	THRESHOLD_PERIOD_DAY     = THRESHOLD_STANDARD
+	THRESHOLD_PERIOD_YEAR    = THRESHOLD_HARD
+	THRESHOLD_PERIOD_CENTURY = THRESHOLD_HARDEST
 )
 
-type PeriodicValidationChannel struct {
-	Period time.Duration
-}
-
 type PeriodicValidator struct {
-	Periods map[time.Duration]*PeriodicValidationChannel
+	// TODO add validator that each block holds the full channel set of the previous
+	// TODO add validator that the duration between block timestamps equals or exceeds the period
+	// TODO add validator that each head reference in block is the longest chain before timestamp
+	Channel *Channel
+	Period  time.Duration
+	Ticker  *time.Ticker
 }
 
-func GetPeriodicValidator() *PeriodicValidator {
+func GetHourlyValidator(channel *Channel) *PeriodicValidator {
 	return &PeriodicValidator{
-		Periods: map[time.Duration]*PeriodicValidationChannel{
-			PERIOD_HOURLY: &PeriodicValidationChannel{Period: PERIOD_HOURLY},
-			PERIOD_DAILY:  &PeriodicValidationChannel{Period: PERIOD_DAILY},
-			PERIOD_YEARLY: &PeriodicValidationChannel{Period: PERIOD_YEARLY},
-		},
+		Channel: channel,
+		Period:  PERIOD_HOURLY,
 	}
 }
 
-func (p *PeriodicValidator) Validate(cache Cache, network Network, hash []byte, block *Block) error {
-	// TODO
+func GetDailyValidator(channel *Channel) *PeriodicValidator {
+	return &PeriodicValidator{
+		Channel: channel,
+		Period:  PERIOD_DAILY,
+	}
+}
+
+func GetYearlyValidator(channel *Channel) *PeriodicValidator {
+	return &PeriodicValidator{
+		Channel: channel,
+		Period:  PERIOD_YEARLY,
+	}
+}
+
+func GetCentenniallyValidator(channel *Channel) *PeriodicValidator {
+	return &PeriodicValidator{
+		Channel: channel,
+		Period:  PERIOD_CENTENNIALLY,
+	}
+}
+
+// Fills the given set with the names of all channels validated in this chain
+func (p *PeriodicValidator) FillChannelSet(set map[string]bool, cache Cache, network Network) error {
+	return Iterate(p.Channel.GetName(), p.Channel.GetHead(), nil, cache, network, func(h []byte, b *Block) error {
+		for _, entry := range b.Entry {
+			// Unmarshal as Reference
+			r := &Reference{}
+			err := proto.Unmarshal(entry.Record.Payload, r)
+			if err != nil {
+				return err
+			}
+			set[r.ChannelName] = true
+		}
+		return nil
+	})
+}
+
+// Ensures all block hashes in validation chain for given channel appear in its chain
+func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
+	// Mark all block hashes for channel in p.Channel
+	set := make(map[string]bool)
+	if err := Iterate(p.Channel.GetName(), p.Channel.GetHead(), nil, cache, network, func(h []byte, b *Block) error {
+		for _, entry := range b.Entry {
+			// Unmarshal as Reference
+			r := &Reference{}
+			err := proto.Unmarshal(entry.Record.Payload, r)
+			if err != nil {
+				return err
+			}
+			if r.ChannelName == channel.GetName() {
+				set[base64.RawURLEncoding.EncodeToString(r.BlockHash)] = true
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Unmark all block hashes which appear is chain
+	if err := Iterate(channel.GetName(), hash, block, cache, network, func(h []byte, b *Block) error {
+		set[base64.RawURLEncoding.EncodeToString(h)] = false
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// Collect all marked block hashes
+	var missing []string
+	for hash, marked := range set {
+		if marked {
+			missing = append(missing, hash)
+		}
+	}
+	if len(missing) > 0 {
+		return errors.New(fmt.Sprintf(ERROR_MISSING_VALIDATED_BLOCK, strings.Join(missing, ",")))
+	}
 	return nil
+}
+
+func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener MiningListener) error {
+	now := time.Now().UTC()
+	last := int64(p.Channel.GetTimestamp())
+	// Check if the time since last update is greater than period
+	if last == 0 || now.Sub(time.Unix(0, last)) > p.Period {
+		unix := uint64(now.UnixNano())
+		entries, err := CreateValidationEntries(unix, node)
+		if err != nil {
+			return err
+		}
+		name := p.Channel.GetName()
+		head := p.Channel.GetHead()
+		var block *Block
+		if head != nil {
+			block, err = GetBlock(name, node.Cache, node.Network, head)
+			if err != nil {
+				return err
+			}
+		}
+		b := CreateValidationBlock(unix, name, node.Alias, head, block, entries)
+		_, _, err = node.MineBlock(p.Channel, threshold, listener, b)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Periodically mines a new block into the chain containing the head hashes of all open channels
+func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningListener) {
+	// 3 times per period
+	p.Ticker = time.NewTicker(p.Period / 3)
+	for {
+		go func() {
+			if err := p.Update(node, threshold, listener); err != nil {
+				log.Println(err)
+				p.Stop()
+			}
+		}()
+		<-p.Ticker.C
+	}
+}
+
+func (p *PeriodicValidator) Stop() {
+	if p.Ticker != nil {
+		p.Ticker.Stop()
+		p.Ticker = nil
+	}
+}
+
+func CreateValidationBlock(timestamp uint64, channel, alias string, head []byte, block *Block, entries []*BlockEntry) *Block {
+	b := &Block{
+		Timestamp:   timestamp,
+		ChannelName: channel,
+		Length:      1,
+		Miner:       alias,
+		Entry:       entries,
+	}
+
+	if head != nil && block != nil {
+		b.Length = block.Length + 1
+		b.Previous = head
+	}
+
+	return b
+}
+
+func CreateValidationEntries(timestamp uint64, node *Node) ([]*BlockEntry, error) {
+	var entries []*BlockEntry
+	for _, channel := range node.GetChannels() {
+		head := channel.GetHead()
+		if head == nil {
+			continue
+		}
+		updated := channel.GetTimestamp()
+		if timestamp < updated {
+			// Head was updated after Validation Cycle started
+			// TODO iterate back through channel blocks until timestamp > block.Timestamp
+		}
+		entry, err := CreateValidationEntry(timestamp, node, channel.GetName(), updated, head)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+func CreateValidationEntry(timestamp uint64, node *Node, channel string, updated uint64, head []byte) (*BlockEntry, error) {
+	reference := &Reference{
+		Timestamp:   updated,
+		ChannelName: channel,
+		BlockHash:   head,
+	}
+	payload, err := proto.Marshal(reference)
+	if err != nil {
+		return nil, err
+	}
+	_, record, err := CreateRecord(timestamp, node.Alias, node.Key, nil, nil, payload)
+	if err != nil {
+		return nil, err
+	}
+	hash, err := cryptogo.HashProtobuf(record)
+	if err != nil {
+		return nil, err
+	}
+	return &BlockEntry{
+		RecordHash: hash,
+		Record:     record,
+	}, nil
 }

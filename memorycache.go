@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	ERROR_BLOCK_NOT_FOUND = "Block not found %s"
-	ERROR_HEAD_NOT_FOUND  = "Head not found %s"
+	ERROR_BLOCK_NOT_FOUND                   = "Block not found %s"
+	ERROR_HEAD_NOT_FOUND                    = "Head not found %s"
+	ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND = "Record to Block Mapping not found %s"
 )
 
 type MemoryCache struct {
@@ -69,7 +70,7 @@ func (m *MemoryCache) GetBlockContainingRecord(channel string, hash []byte) (*Bl
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	block, ok := m.Mapping[key]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(ERROR_BLOCK_NOT_FOUND, key))
+		return nil, errors.New(fmt.Sprintf(ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, key))
 	}
 	return block, nil
 }

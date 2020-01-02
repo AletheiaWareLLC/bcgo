@@ -26,16 +26,16 @@ import (
 	"testing"
 )
 
-func AssertNilHead(t *testing.T, channel bcgo.Channel) {
+func AssertNilHead(t *testing.T, channel *bcgo.Channel) {
 	t.Helper()
 	if channel.GetHead() != nil {
 		t.Fatal("Expected nil head hash")
 	}
 }
 
-func makeMockChannel(t *testing.T) *ExampleChannel {
+func makeMockChannel(t *testing.T) *bcgo.Channel {
 	t.Helper()
-	return &ExampleChannel{
+	return &bcgo.Channel{
 		Name: "TEST",
 	}
 }
@@ -88,12 +88,12 @@ func TestChannelUpdate(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		channel.SetHead(hash)
-		testinggo.AssertNoError(t, bcgo.Update(channel, nil, nil, hash, block))
+		testinggo.AssertNoError(t, channel.Update(nil, nil, hash, block))
 	})
 	t.Run("WrongHash", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		channel := makeMockChannel(t)
-		testinggo.AssertError(t, bcgo.ERROR_HASH_INCORRECT, bcgo.Update(channel, nil, nil, []byte("WRONGHASH"), block))
+		testinggo.AssertError(t, bcgo.ERROR_HASH_INCORRECT, channel.Update(nil, nil, []byte("WRONGHASH"), block))
 	})
 	t.Run("ShortChain", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -107,8 +107,8 @@ func TestChannelUpdate(t *testing.T) {
 		hash2 := makeHash(t, block2)
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash2, block2))
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2), bcgo.Update(channel, cache, nil, hash, block))
+		testinggo.AssertNoError(t, channel.Update(cache, nil, hash2, block2))
+		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2), channel.Update(cache, nil, hash, block))
 	})
 	t.Run("InvalidChain", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -118,7 +118,7 @@ func TestChannelUpdate(t *testing.T) {
 			ValidError: errors.New("Foo Bar"),
 		})
 
-		testinggo.AssertError(t, "Chain invalid: Foo Bar", bcgo.Update(channel, nil, nil, hash, block))
+		testinggo.AssertError(t, "Chain invalid: Foo Bar", channel.Update(nil, nil, hash, block))
 	})
 	t.Run("CacheHeadWriteError", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -126,14 +126,14 @@ func TestChannelUpdate(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
 		cache.PutHeadError = errors.New("Put failed")
-		testinggo.AssertError(t, "Put failed", bcgo.Update(channel, cache, nil, hash, block))
+		testinggo.AssertError(t, "Put failed", channel.Update(cache, nil, hash, block))
 	})
 	t.Run("CacheHeadWrite", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash, block))
+		testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
 		if len(cache.Head) != 1 {
 			t.Fatalf("Updated head not put in cache")
 		}
@@ -149,7 +149,7 @@ func TestChannelUpdate(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
-		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash, block))
+		testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
 		if len(cache.Block) != 1 {
 			t.Fatalf("Block not put in cache")
 		}
@@ -177,7 +177,7 @@ func TestChannelPull(t *testing.T) {
 		channel := makeMockChannel(t)
 		network := makeMockNetwork(t)
 		network.HeadError = errors.New("No Head")
-		testinggo.AssertError(t, "No Head", bcgo.Pull(channel, nil, network))
+		testinggo.AssertError(t, "No Head", channel.Pull(nil, network))
 		AssertNilHead(t, channel)
 	})
 	t.Run("LocalRemoteSameChainSameLength", func(t *testing.T) {
@@ -190,7 +190,7 @@ func TestChannelPull(t *testing.T) {
 			ChannelName: "TEST",
 			BlockHash:   hash,
 		}
-		testinggo.AssertNoError(t, bcgo.Pull(channel, nil, network))
+		testinggo.AssertNoError(t, channel.Pull(nil, network))
 		// Channel should not change
 		testinggo.AssertHashEqual(t, hash, channel.GetHead())
 	})
@@ -210,7 +210,7 @@ func TestChannelPull(t *testing.T) {
 			BlockHash:   netHash,
 		}
 		network.Blocks[base64.RawURLEncoding.EncodeToString(netHash)] = netBlock
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 1), bcgo.Pull(channel, cache, network))
+		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 1), channel.Pull(cache, network))
 		// Channel should not change
 		testinggo.AssertHashEqual(t, hash, channel.GetHead())
 	})
@@ -231,7 +231,7 @@ func TestChannelPull(t *testing.T) {
 		}
 		network.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
 		network.Blocks[base64.RawURLEncoding.EncodeToString(hash2)] = block2
-		testinggo.AssertNoError(t, bcgo.Pull(channel, cache, network))
+		testinggo.AssertNoError(t, channel.Pull(cache, network))
 		// Channel should update
 		testinggo.AssertHashEqual(t, hash2, channel.GetHead())
 		// TODO check block2 is in cache
@@ -255,7 +255,7 @@ func TestChannelPull(t *testing.T) {
 			BlockHash:   hash1,
 		}
 		network.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
-		testinggo.AssertError(t, expected, bcgo.Pull(channel, cache, network))
+		testinggo.AssertError(t, expected, channel.Pull(cache, network))
 		// Channel should not change
 		testinggo.AssertHashEqual(t, hash2, channel.GetHead())
 	})
@@ -273,7 +273,7 @@ func TestChannelPush(t *testing.T) {
 		network := makeMockNetwork(t)
 		network.HeadError = errors.New("No Head")
 		network.BroadcastError = errors.New("Could not Broadcast")
-		testinggo.AssertError(t, "Could not Broadcast", bcgo.Push(channel, cache, network))
+		testinggo.AssertError(t, "Could not Broadcast", channel.Push(cache, network))
 	})
 	t.Run("Success", func(t *testing.T) {
 		block := makeBlock(t, 1234)
@@ -285,7 +285,7 @@ func TestChannelPush(t *testing.T) {
 
 		network := makeMockNetwork(t)
 		network.Head = &bcgo.Reference{}
-		testinggo.AssertNoError(t, bcgo.Push(channel, cache, network))
+		testinggo.AssertNoError(t, channel.Push(cache, network))
 		testinggo.AssertHashEqual(t, hash, network.BroadcastHash)
 		testinggo.AssertProtobufEqual(t, block, network.BroadcastBlock)
 	})

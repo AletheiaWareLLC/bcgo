@@ -39,7 +39,7 @@ func ExampleNode() {
 		log.Fatal("Could not create file cache:", err)
 	}
 
-	channel := &ExampleChannel{
+	channel := &bcgo.Channel{
 		Name: "Example",
 	}
 
@@ -94,7 +94,7 @@ func ExampleNode_Network() {
 		},
 	}
 
-	channel := &ExampleChannel{
+	channel := &bcgo.Channel{
 		Name: "Example",
 	}
 
@@ -126,7 +126,7 @@ func ExampleNode_Network() {
 	}
 
 	// Push update to network
-	if err := bcgo.Push(channel, cache, network); err != nil {
+	if err := channel.Push(cache, network); err != nil {
 		log.Fatal("Could not push:", err)
 	}
 

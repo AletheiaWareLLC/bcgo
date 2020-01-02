@@ -349,7 +349,6 @@ func CreateRecord(timestamp uint64, creatorAlias string, creatorKey *rsa.Private
 		}
 		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING
 	} else {
-		log.Println("No aliases granted access, creating public record")
 		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION
 	}
 

@@ -30,10 +30,11 @@ import (
 func makeNode(t *testing.T, a string, key *rsa.PrivateKey, cache bcgo.Cache, network bcgo.Network) *bcgo.Node {
 	t.Helper()
 	return &bcgo.Node{
-		Alias:   a,
-		Key:     key,
-		Cache:   cache,
-		Network: network,
+		Alias:    a,
+		Key:      key,
+		Cache:    cache,
+		Network:  network,
+		Channels: make(map[string]*bcgo.Channel),
 	}
 }
 

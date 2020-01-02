@@ -24,6 +24,6 @@ type MockValidator struct {
 	ValidError error
 }
 
-func (m *MockValidator) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
+func (m *MockValidator) Validate(channel *bcgo.Channel, cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
 	return m.ValidError
 }

@@ -48,7 +48,7 @@ func (m *MockNetwork) GetBlock(reference *bcgo.Reference) (*bcgo.Block, error) {
 	return m.Blocks[base64.RawURLEncoding.EncodeToString(reference.BlockHash)], m.BlockError
 }
 
-func (m *MockNetwork) Broadcast(channel bcgo.Channel, cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
+func (m *MockNetwork) Broadcast(channel *bcgo.Channel, cache bcgo.Cache, hash []byte, block *bcgo.Block) error {
 	m.BroadcastHash = hash
 	m.BroadcastBlock = block
 	return m.BroadcastError

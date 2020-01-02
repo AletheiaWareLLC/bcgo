@@ -31,20 +31,47 @@ const (
 	ERROR_HASH_INCORRECT  = "Hash doesn't match block hash"
 )
 
-type Channel interface {
-	fmt.Stringer
-	GetName() string
-	GetHead() []byte
-	SetHead([]byte)
-	GetTimestamp() uint64
-	SetTimestamp(uint64)
-	GetValidators() []Validator
-	AddValidator(Validator)
+type Channel struct {
+	Name       string
+	Head       []byte
+	Timestamp  uint64
+	Validators []Validator
 }
 
-func Update(channel Channel, cache Cache, network Network, hash []byte, block *Block) error {
-	head := channel.GetHead()
-	if bytes.Equal(head, hash) {
+func (c *Channel) String() string {
+	return c.Name
+}
+
+func (c *Channel) GetName() string {
+	return c.Name
+}
+
+func (c *Channel) GetTimestamp() uint64 {
+	return c.Timestamp
+}
+
+func (c *Channel) SetTimestamp(timestamp uint64) {
+	c.Timestamp = timestamp
+}
+
+func (c *Channel) GetHead() []byte {
+	return c.Head
+}
+
+func (c *Channel) SetHead(hash []byte) {
+	c.Head = hash
+}
+
+func (c *Channel) GetValidators() []Validator {
+	return c.Validators
+}
+
+func (c *Channel) AddValidator(validator Validator) {
+	c.Validators = append(c.Validators, validator)
+}
+
+func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block) error {
+	if bytes.Equal(c.Head, head) {
 		// Channel up to date
 		return nil
 	}
@@ -54,11 +81,11 @@ func Update(channel Channel, cache Cache, network Network, hash []byte, block *B
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(hash, h) {
+	if !bytes.Equal(head, h) {
 		return errors.New(ERROR_HASH_INCORRECT)
 	}
-	if head != nil {
-		b, err := cache.GetBlock(head)
+	if c.Head != nil {
+		b, err := cache.GetBlock(c.Head)
 		if err != nil {
 			return err
 		}
@@ -68,23 +95,23 @@ func Update(channel Channel, cache Cache, network Network, hash []byte, block *B
 		}
 	}
 
-	for _, v := range channel.GetValidators() {
-		if err := v.Validate(channel, cache, network, hash, block); err != nil {
+	for _, v := range c.GetValidators() {
+		if err := v.Validate(c, cache, network, head, block); err != nil {
 			return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
 		}
 	}
 
-	channel.SetTimestamp(block.Timestamp)
-	channel.SetHead(hash)
-	fmt.Printf("%s updated to %s %s\n", channel.GetName(), TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
-	if err := cache.PutHead(channel.GetName(), &Reference{
+	c.SetTimestamp(block.Timestamp)
+	c.SetHead(head)
+	fmt.Printf("%s updated to %s %s\n", c.GetName(), TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(head))
+	if err := cache.PutHead(c.GetName(), &Reference{
 		Timestamp:   block.Timestamp,
-		ChannelName: channel.GetName(),
-		BlockHash:   hash,
+		ChannelName: c.GetName(),
+		BlockHash:   head,
 	}); err != nil {
 		return err
 	}
-	return cache.PutBlock(hash, block)
+	return cache.PutBlock(head, block)
 }
 
 func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
@@ -168,23 +195,23 @@ func Iterate(channel string, hash []byte, block *Block, cache Cache, network Net
 	return nil
 }
 
-func LoadCachedHead(channel Channel, cache Cache) error {
-	reference, err := cache.GetHead(channel.GetName())
+func (c *Channel) LoadCachedHead(cache Cache) error {
+	reference, err := cache.GetHead(c.GetName())
 	if err != nil {
 		return err
 	}
-	channel.SetTimestamp(reference.Timestamp)
-	channel.SetHead(reference.BlockHash)
+	c.SetTimestamp(reference.Timestamp)
+	c.SetHead(reference.BlockHash)
 	return nil
 }
 
-func LoadHead(channel Channel, cache Cache, network Network) error {
-	reference, err := GetHeadReference(channel.GetName(), cache, network)
+func (c *Channel) LoadHead(cache Cache, network Network) error {
+	reference, err := GetHeadReference(c.GetName(), cache, network)
 	if err != nil {
 		return err
 	}
-	channel.SetTimestamp(reference.Timestamp)
-	channel.SetHead(reference.BlockHash)
+	c.SetTimestamp(reference.Timestamp)
+	c.SetHead(reference.BlockHash)
 	return nil
 }
 
@@ -283,21 +310,21 @@ func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error
 	}, nil
 }
 
-func Pull(channel Channel, cache Cache, network Network) error {
+func (c *Channel) Pull(cache Cache, network Network) error {
 	if network == nil {
 		return nil
 	}
-	reference, err := network.GetHead(channel.GetName())
+	reference, err := network.GetHead(c.GetName())
 	if err != nil {
 		return err
 	}
 	hash := reference.BlockHash
-	if bytes.Equal(channel.GetHead(), hash) {
+	if bytes.Equal(c.GetHead(), hash) {
 		// Channel up-to-date
 		return nil
 	}
 	// Load head block
-	block, err := GetBlock(channel.GetName(), cache, network, hash)
+	block, err := GetBlock(c.GetName(), cache, network, hash)
 	if err != nil {
 		return err
 	}
@@ -306,7 +333,7 @@ func Pull(channel Channel, cache Cache, network Network) error {
 	for b != nil {
 		h := b.Previous
 		if h != nil && len(h) > 0 {
-			b, err = GetBlock(channel.GetName(), cache, network, h)
+			b, err = GetBlock(c.GetName(), cache, network, h)
 			if err != nil {
 				return err
 			}
@@ -314,16 +341,16 @@ func Pull(channel Channel, cache Cache, network Network) error {
 			b = nil
 		}
 	}
-	if err := Update(channel, cache, network, hash, block); err != nil {
+	if err := c.Update(cache, network, hash, block); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Push(channel Channel, cache Cache, network Network) error {
-	hash := channel.GetHead()
+func (c *Channel) Push(cache Cache, network Network) error {
+	hash := c.GetHead()
 	if hash == nil {
-		reference, err := cache.GetHead(channel.GetName())
+		reference, err := cache.GetHead(c.GetName())
 		if err != nil {
 			return err
 		}
@@ -333,5 +360,5 @@ func Push(channel Channel, cache Cache, network Network) error {
 	if err != nil {
 		return err
 	}
-	return network.Broadcast(channel, cache, hash, block)
+	return network.Broadcast(c, cache, hash, block)
 }

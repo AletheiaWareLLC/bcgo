@@ -19,6 +19,7 @@ package bcgo_test
 import (
 	"fmt"
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"log"
 )
 
@@ -26,7 +27,7 @@ func ExamplePoWValidator_Threshold() {
 	validator := &bcgo.PoWValidator{
 		Threshold: bcgo.THRESHOLD_STANDARD,
 	}
-	channel := &ExampleChannel{
+	channel := &bcgo.Channel{
 		Name: "FooBar",
 		Validators: []bcgo.Validator{
 			validator,
@@ -37,7 +38,7 @@ func ExamplePoWValidator_Threshold() {
 		ChannelName: "TEST",
 		Length:      1,
 	}
-	hash, err := bcgo.HashProtobuf(block)
+	hash, err := cryptogo.HashProtobuf(block)
 	if err != nil {
 		log.Fatal("Could not hash block:", err)
 	}

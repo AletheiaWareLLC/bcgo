@@ -248,7 +248,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 		cache.PutBlock(hash, block)
 		channel.SetHead(hash)
 
-		testinggo.AssertMatchesError(t, "dial tcp .*:23232: connect: connection refused", bcgo.Push(channel, cache, network))
+		testinggo.AssertMatchesError(t, "dial tcp .*:23232: connect: connection refused", channel.Push(cache, network))
 	})
 	t.Run("LocalRemoteEqualLength", func(t *testing.T) {
 		block1 := makeBlock(t, 1234)
@@ -278,7 +278,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			block1.String(): netHash1,
 		})
 
-		testinggo.AssertNoError(t, bcgo.Push(channel, cache, network))
+		testinggo.AssertNoError(t, channel.Push(cache, network))
 	})
 	t.Run("LocalLongerThanRemote", func(t *testing.T) {
 		block1 := makeBlock(t, 1234)
@@ -311,7 +311,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			block1.String(): hash3, // 1 missing none
 		})
 
-		testinggo.AssertNoError(t, bcgo.Push(channel, cache, network))
+		testinggo.AssertNoError(t, channel.Push(cache, network))
 	})
 	t.Run("RemoteLongerThanLocal", func(t *testing.T) {
 		block1 := makeBlock(t, 1234)
@@ -343,6 +343,6 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			block1.String(): netHash2,
 		})
 
-		testinggo.AssertError(t, bcgo.ERROR_CHANNEL_OUT_OF_DATE, bcgo.Push(channel, cache, network))
+		testinggo.AssertError(t, bcgo.ERROR_CHANNEL_OUT_OF_DATE, channel.Push(cache, network))
 	})
 }

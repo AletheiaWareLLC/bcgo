@@ -25,6 +25,17 @@ const (
 	ERROR_HASH_TOO_WEAK = "Hash doesn't meet Proof-of-Work threshold: %d vs %d"
 )
 
+func OpenPoWChannel(name string, threshold uint64) *Channel {
+	return &Channel{
+		Name: name,
+		Validators: []Validator{
+			&PoWValidator{
+				Threshold: threshold,
+			},
+		},
+	}
+}
+
 type PoWValidator struct {
 	Threshold uint64
 }
@@ -33,7 +44,7 @@ func (p *PoWValidator) GetThreshold() uint64 {
 	return p.Threshold
 }
 
-func (p *PoWValidator) Validate(channel Channel, cache Cache, network Network, hash []byte, block *Block) error {
+func (p *PoWValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
 	return Iterate(channel.GetName(), hash, block, cache, network, func(h []byte, b *Block) error {
 		// Check hash ones pass threshold
 		ones := Ones(h)

@@ -19,5 +19,5 @@ package bcgo
 type Network interface {
 	GetHead(channel string) (*Reference, error)
 	GetBlock(reference *Reference) (*Block, error)
-	Broadcast(channel Channel, cache Cache, hash []byte, block *Block) error
+	Broadcast(channel *Channel, cache Cache, hash []byte, block *Block) error
 }

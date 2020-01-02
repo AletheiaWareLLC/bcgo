@@ -134,7 +134,7 @@ func TestMemoryCacheGetBlockContainingRecord(t *testing.T) {
 		mc := bcgo.NewMemoryCache(SIZE)
 		hash := []byte("FOOBAR")
 		_, err := mc.GetBlockContainingRecord("TEST", hash)
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_BLOCK_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
+		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
 	})
 	t.Run("Exists", func(t *testing.T) {
 		mc := bcgo.NewMemoryCache(SIZE)

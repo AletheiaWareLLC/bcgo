@@ -24,48 +24,8 @@ import (
 	"log"
 )
 
-type ExampleChannel struct {
-	Name       string
-	Timestamp  uint64
-	HeadHash   []byte
-	HeadBlock  *bcgo.Block
-	Validators []bcgo.Validator
-}
-
-func (e *ExampleChannel) String() string {
-	return e.Name
-}
-
-func (e *ExampleChannel) GetName() string {
-	return e.Name
-}
-
-func (e *ExampleChannel) GetTimestamp() uint64 {
-	return e.Timestamp
-}
-
-func (e *ExampleChannel) SetTimestamp(timestamp uint64) {
-	e.Timestamp = timestamp
-}
-
-func (e *ExampleChannel) GetHead() []byte {
-	return e.HeadHash
-}
-
-func (e *ExampleChannel) SetHead(hash []byte) {
-	e.HeadHash = hash
-}
-
-func (e *ExampleChannel) GetValidators() []bcgo.Validator {
-	return e.Validators
-}
-
-func (e *ExampleChannel) AddValidator(validator bcgo.Validator) {
-	e.Validators = append(e.Validators, validator)
-}
-
-func ExampleChannel_GetName() {
-	channel := &ExampleChannel{
+func Channel_GetName() {
+	channel := &bcgo.Channel{
 		Name: "FooBar",
 	}
 	fmt.Println(channel.GetName())
@@ -73,8 +33,8 @@ func ExampleChannel_GetName() {
 	// FooBar
 }
 
-func ExampleChannel_String() {
-	channel := &ExampleChannel{
+func Channel_String() {
+	channel := &bcgo.Channel{
 		Name: "FooBar",
 	}
 	fmt.Println(channel.String())
@@ -82,8 +42,8 @@ func ExampleChannel_String() {
 	// FooBar
 }
 
-func ExampleChannel_GetHead() {
-	channel := &ExampleChannel{
+func Channel_GetHead() {
+	channel := &bcgo.Channel{
 		Name: "FooBar",
 	}
 	fmt.Println(channel.GetHead())
@@ -91,8 +51,8 @@ func ExampleChannel_GetHead() {
 	// []
 }
 
-func ExampleChannel_GetHead_update_success() {
-	channel := &ExampleChannel{
+func Channel_GetHead_update() {
+	channel := &bcgo.Channel{
 		Name: "FooBar",
 	}
 	cache := bcgo.NewMemoryCache(10)
@@ -104,7 +64,7 @@ func ExampleChannel_GetHead_update_success() {
 	if err != nil {
 		log.Fatal("Could not hash block:", err)
 	}
-	if err := bcgo.Update(channel, cache, nil, hash, block); err != nil {
+	if err := channel.Update(cache, nil, hash, block); err != nil {
 		log.Fatal("Could not update channel: ", err)
 	}
 	fmt.Println(channel.GetHead())
@@ -113,25 +73,7 @@ func ExampleChannel_GetHead_update_success() {
 	// [21 101 34 109 100 58 219 42 31 242 190 89 120 58 190 126 185 228 20 185 232 253 24 168 56 212 235 148 122 240 142 230 130 69 111 22 254 195 38 113 214 22 222 151 21 250 14 16 45 143 11 251 67 101 252 204 121 162 44 21 144 146 147 19]
 }
 
-func ExampleChannel_GetHead_update_threshold() {
-	channel := &ExampleChannel{
-		Name:      "FooBar",
-		Threshold: bcgo.THRESHOLD_STANDARD,
-	}
-	cache := bcgo.NewMemoryCache(10)
-	block := &bcgo.Block{
-		ChannelName: "TEST",
-		Length:      1,
-	}
-	hash, err := cryptogo.HashProtobuf(block)
-	if err != nil {
-		log.Fatal("Could not hash block:", err)
-	}
-	fmt.Println(bcgo.Update(channel, cache, nil, hash, block))
-	// Output: Chain invalid: Hash doesn't meet Proof-of-Work threshold: 262 vs 288
-}
-
-func ExampleChannel_filecache() {
+func Channel_filecache() {
 	// Create temp directory
 	dir, err := ioutil.TempDir("", "test")
 	if err != nil {
@@ -145,7 +87,7 @@ func ExampleChannel_filecache() {
 
 	// Create channel, update, and write to cache
 	{
-		channel := &ExampleChannel{
+		channel := &bcgo.Channel{
 			Name: "FooBar",
 		}
 		block := &bcgo.Block{
@@ -156,16 +98,16 @@ func ExampleChannel_filecache() {
 		if err != nil {
 			log.Fatal("Could not hash block:", err)
 		}
-		if err := bcgo.Update(channel, cache, nil, hash, block); err != nil {
+		if err := channel.Update(cache, nil, hash, block); err != nil {
 			log.Fatal("Could not update channel: ", err)
 		}
 	}
 
 	// Create channel and read from cache
-	channel2 := &ExampleChannel{
+	channel2 := &bcgo.Channel{
 		Name: "FooBar",
 	}
-	if err := bcgo.LoadHead(channel2, cache, nil); err != nil {
+	if err := channel2.LoadHead(cache, nil); err != nil {
 		log.Fatal("Could not load head from cache: ", err)
 	}
 	fmt.Println(channel2.GetHead())
