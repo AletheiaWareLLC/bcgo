@@ -18,6 +18,7 @@ package bcgo_test
 
 import (
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"testing"
 )
@@ -51,14 +52,14 @@ func makeRecord(t *testing.T) *bcgo.Record {
 			&bcgo.Record_Access{
 				Alias:               "TESTER",
 				SecretKey:           []byte("SECRET"),
-				EncryptionAlgorithm: bcgo.EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
+				EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
 			},
 		},
 		Payload:              []byte("DATA"),
-		CompressionAlgorithm: bcgo.CompressionAlgorithm_UNKNOWN_COMPRESSION,
-		EncryptionAlgorithm:  bcgo.EncryptionAlgorithm_AES_GCM_NOPADDING,
+		CompressionAlgorithm: cryptogo.CompressionAlgorithm_UNKNOWN_COMPRESSION,
+		EncryptionAlgorithm:  cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING,
 		Signature:            []byte("SIGN"),
-		SignatureAlgorithm:   bcgo.SignatureAlgorithm_SHA512WITHRSA_PSS,
+		SignatureAlgorithm:   cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS,
 		Reference: []*bcgo.Reference{
 			&bcgo.Reference{
 				Timestamp:   8901,
@@ -72,7 +73,7 @@ func makeRecord(t *testing.T) *bcgo.Record {
 
 func makeHash(t *testing.T, pb proto.Message) []byte {
 	t.Helper()
-	h, err := bcgo.HashProtobuf(pb)
+	h, err := cryptogo.HashProtobuf(pb)
 	if err != nil {
 		t.Fatalf("Could not marshal protobuf: '%s'", err)
 	}

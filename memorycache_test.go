@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/AletheiaWareLLC/testinggo"
 	"testing"
 )
@@ -72,7 +73,7 @@ func TestMemoryCacheGetBlockEntries(t *testing.T) {
 			Timestamp: 1234,
 			Payload:   []byte("Foo"),
 		}
-		rh1, err := bcgo.HashProtobuf(r1)
+		rh1, err := cryptogo.HashProtobuf(r1)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertNoError(t, mc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 			Record:     r1,
@@ -82,7 +83,7 @@ func TestMemoryCacheGetBlockEntries(t *testing.T) {
 			Timestamp: 5678,
 			Payload:   []byte("Bar"),
 		}
-		rh2, err := bcgo.HashProtobuf(r2)
+		rh2, err := cryptogo.HashProtobuf(r2)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertNoError(t, mc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 			Record:     r2,
@@ -105,7 +106,7 @@ func TestMemoryCachePutBlockEntry(t *testing.T) {
 		Timestamp: 1234,
 		Payload:   []byte("Foo"),
 	}
-	rh1, err := bcgo.HashProtobuf(r1)
+	rh1, err := cryptogo.HashProtobuf(r1)
 	testinggo.AssertNoError(t, err)
 	testinggo.AssertNoError(t, mc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 		Record:     r1,
@@ -115,7 +116,7 @@ func TestMemoryCachePutBlockEntry(t *testing.T) {
 		Timestamp: 5678,
 		Payload:   []byte("Bar"),
 	}
-	rh2, err := bcgo.HashProtobuf(r2)
+	rh2, err := cryptogo.HashProtobuf(r2)
 	testinggo.AssertNoError(t, err)
 	testinggo.AssertNoError(t, mc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 		Record:     r2,

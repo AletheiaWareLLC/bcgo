@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/AletheiaWareLLC/cryptogo"
 )
 
 const (
@@ -48,7 +49,7 @@ func Update(channel Channel, cache Cache, network Network, hash []byte, block *B
 	}
 
 	// Check hash matches block hash
-	h, err := HashProtobuf(block)
+	h, err := cryptogo.HashProtobuf(block)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Net
 			if bytes.Equal(recordHash, entry.RecordHash) {
 				for _, access := range entry.Record.Access {
 					if alias == "" || alias == access.Alias {
-						decryptedKey, err := DecryptKey(access, key)
+						decryptedKey, err := cryptogo.DecryptKey(access.EncryptionAlgorithm, access.SecretKey, key)
 						if err != nil {
 							return err
 						}
@@ -249,7 +250,7 @@ func GetBlockContainingRecord(channel string, cache Cache, network Network, hash
 		return nil, err
 	}
 
-	bh, err := HashProtobuf(b)
+	bh, err := cryptogo.HashProtobuf(b)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +263,7 @@ func GetBlockContainingRecord(channel string, cache Cache, network Network, hash
 }
 
 func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error) {
-	hash, err := HashProtobuf(record)
+	hash, err := cryptogo.HashProtobuf(record)
 	if err != nil {
 		return nil, err
 	}

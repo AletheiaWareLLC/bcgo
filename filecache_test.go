@@ -19,6 +19,7 @@ package bcgo_test
 import (
 	"bytes"
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/AletheiaWareLLC/testinggo"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
@@ -96,7 +97,7 @@ func TestFileCacheGetBlockEntries(t *testing.T) {
 			Timestamp: 1234,
 			Payload:   []byte("Foo"),
 		}
-		rh1, err := bcgo.HashProtobuf(r1)
+		rh1, err := cryptogo.HashProtobuf(r1)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertNoError(t, fc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 			Record:     r1,
@@ -106,7 +107,7 @@ func TestFileCacheGetBlockEntries(t *testing.T) {
 			Timestamp: 5678,
 			Payload:   []byte("Bar"),
 		}
-		rh2, err := bcgo.HashProtobuf(r2)
+		rh2, err := cryptogo.HashProtobuf(r2)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertNoError(t, fc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 			Record:     r2,
@@ -132,7 +133,7 @@ func TestFileCachePutBlockEntry(t *testing.T) {
 		Timestamp: 1234,
 		Payload:   []byte("Foo"),
 	}
-	rh1, err := bcgo.HashProtobuf(r1)
+	rh1, err := cryptogo.HashProtobuf(r1)
 	testinggo.AssertNoError(t, err)
 	testinggo.AssertNoError(t, fc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 		Record:     r1,
@@ -142,7 +143,7 @@ func TestFileCachePutBlockEntry(t *testing.T) {
 		Timestamp: 5678,
 		Payload:   []byte("Bar"),
 	}
-	rh2, err := bcgo.HashProtobuf(r2)
+	rh2, err := cryptogo.HashProtobuf(r2)
 	testinggo.AssertNoError(t, err)
 	testinggo.AssertNoError(t, fc.PutBlockEntry("TEST", &bcgo.BlockEntry{
 		Record:     r2,
@@ -240,7 +241,7 @@ func TestMeasureStorageUsage(t *testing.T) {
 		aliceRecord := &bcgo.Record{
 			Creator: "Alice",
 		}
-		aliceRecordHash, err := bcgo.HashProtobuf(aliceRecord)
+		aliceRecordHash, err := cryptogo.HashProtobuf(aliceRecord)
 		if err != nil {
 			t.Fatalf("Expected no error, got " + err.Error())
 		}
@@ -248,7 +249,7 @@ func TestMeasureStorageUsage(t *testing.T) {
 		bobRecord := &bcgo.Record{
 			Creator: "Bob",
 		}
-		bobRecordHash, err := bcgo.HashProtobuf(bobRecord)
+		bobRecordHash, err := cryptogo.HashProtobuf(bobRecord)
 		if err != nil {
 			t.Fatalf("Expected no error, got " + err.Error())
 		}
@@ -266,7 +267,7 @@ func TestMeasureStorageUsage(t *testing.T) {
 				},
 			},
 		}
-		blockHash, err := bcgo.HashProtobuf(block)
+		blockHash, err := cryptogo.HashProtobuf(block)
 		if err != nil {
 			t.Fatalf("Expected no error, got " + err.Error())
 		}

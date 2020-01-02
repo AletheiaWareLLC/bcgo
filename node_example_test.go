@@ -75,7 +75,7 @@ func ExampleNode() {
 	fmt.Println(block)
 }
 
-func ExampleNodeNetwork() {
+func ExampleNode_Network() {
 	// Create temp directory
 	dir, err := ioutil.TempDir("", "test")
 	if err != nil {

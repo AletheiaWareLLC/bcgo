@@ -24,8 +24,8 @@ import (
 	"crypto/sha512"
 	"errors"
 	"fmt"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"io/ioutil"
 	"log"
@@ -35,7 +35,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -167,21 +166,6 @@ func GetAlias() (string, error) {
 	return alias, nil
 }
 
-func GetPassword() ([]byte, error) {
-	pwd, ok := os.LookupEnv("PASSWORD")
-	if ok {
-		return []byte(pwd), nil
-	} else {
-		log.Print("Enter keystore password: ")
-		password, err := terminal.ReadPassword(int(syscall.Stdin))
-		if err != nil {
-			return nil, err
-		}
-		log.Println()
-		return password, nil
-	}
-}
-
 func GetRootDirectory() (string, error) {
 	root, ok := os.LookupEnv("ROOT_DIRECTORY")
 	if !ok {
@@ -277,6 +261,27 @@ func AddPeer(directory, peer string) error {
 	return nil
 }
 
+func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey, callback func(*BlockEntry, []byte, []byte) error) error {
+	decryptedKey, err := cryptogo.DecryptKey(access.EncryptionAlgorithm, access.SecretKey, key)
+	if err != nil {
+		return err
+	}
+	record := entry.Record
+	switch record.EncryptionAlgorithm {
+	case cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING:
+		decryptedPayload, err := cryptogo.DecryptAESGCM(decryptedKey, record.Payload)
+		if err != nil {
+			return err
+		}
+		// Call callback
+		return callback(entry, decryptedKey, decryptedPayload)
+	case cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
+		return callback(entry, nil, record.Payload)
+	default:
+		return errors.New(fmt.Sprintf(cryptogo.ERROR_UNSUPPORTED_ENCRYPTION, record.EncryptionAlgorithm.String()))
+	}
+}
+
 // Chunk the data from reader into individual records with their own secret key and access list
 func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, reader io.Reader, callback func([]byte, *Record) error) (int, error) {
 	payload := make([]byte, MAX_PAYLOAD_SIZE_BYTES)
@@ -308,12 +313,12 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	var key []byte
 	var err error
 	if len(access) > 0 {
-		key, err = GenerateRandomKey()
+		key, err = cryptogo.GenerateRandomKey()
 		if err != nil {
 			return nil, nil, err
 		}
 
-		payload, err = EncryptAESGCM(key, payload)
+		payload, err = cryptogo.EncryptAESGCM(key, payload)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -327,7 +332,7 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 			acl = append(acl, &Record_Access{
 				Alias:               a,
 				SecretKey:           secretKey,
-				EncryptionAlgorithm: EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
+				EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
 			})
 		}
 	} else {
@@ -335,10 +340,10 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	}
 
 	// Hash payload
-	hashed := Hash(payload)
+	hashed := cryptogo.Hash(payload)
 
 	// Sign hash of encrypted payload
-	signature, err := CreateSignature(creatorKey, hashed, SignatureAlgorithm_SHA512WITHRSA_PSS)
+	signature, err := cryptogo.CreateSignature(creatorKey, hashed, cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -348,9 +353,9 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 		Timestamp:           uint64(time.Now().UnixNano()),
 		Creator:             creatorAlias,
 		Payload:             payload,
-		EncryptionAlgorithm: EncryptionAlgorithm_AES_GCM_NOPADDING,
+		EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING,
 		Signature:           signature,
-		SignatureAlgorithm:  SignatureAlgorithm_SHA512WITHRSA_PSS,
+		SignatureAlgorithm:  cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS,
 		Reference:           references,
 	}
 	if acl != nil && len(acl) > 0 {

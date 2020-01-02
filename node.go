@@ -20,6 +20,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"sort"
 	"time"
@@ -53,8 +54,12 @@ func GetNode(directory string, cache Cache, network Network) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	keystore, err := GetKeyDirectory(directory)
+	if err != nil {
+		return nil, err
+	}
 	// Get private key
-	key, err := GetOrCreateRSAPrivateKey(directory, alias)
+	key, err := cryptogo.GetOrCreateRSAPrivateKey(keystore, alias)
 	if err != nil {
 		return nil, err
 	}
@@ -173,7 +178,7 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 	var max uint64
 	for nonce := uint64(1); nonce > 0; nonce++ {
 		block.Nonce = nonce
-		hash, err := HashProtobuf(block)
+		hash, err := cryptogo.HashProtobuf(block)
 		if err != nil {
 			return nil, nil, err
 		}

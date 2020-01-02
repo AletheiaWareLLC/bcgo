@@ -18,9 +18,11 @@ package bcgo_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/AletheiaWareLLC/testinggo"
 	"strconv"
 	"testing"
@@ -86,12 +88,15 @@ func (m *MockThresholdChannel) Validate(cache bcgo.Cache, network bcgo.Network, 
 
 func TestNodeWrite(t *testing.T) {
 	t.Run("PayloadTooBig", func(t *testing.T) {
-		key := makeKey(t)
+		key, err := rsa.GenerateKey(rand.Reader, 4096)
+		if err != nil {
+			t.Error("Could not generate key:", err)
+		}
 		cache := makeCache(t)
 		node := makeNode(t, "TESTER", key, cache, nil)
 		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
 		payload := make([]byte, bcgo.MAX_PAYLOAD_SIZE_BYTES+1)
-		_, err := node.Write(channel, nil, nil, payload)
+		_, err = node.Write(channel, nil, nil, payload)
 		testinggo.AssertError(t, "Payload too large: 10MiB max: 10MiB", err)
 		if len(cache.Entries) != 0 {
 			t.Fatalf("Entry written to cache")
@@ -177,7 +182,7 @@ func TestNodeMine(t *testing.T) {
 		r := &bcgo.Record{
 			Payload: make([]byte, bcgo.MAX_BLOCK_SIZE_BYTES+1),
 		}
-		rh, err := bcgo.HashProtobuf(r)
+		rh, err := cryptogo.HashProtobuf(r)
 		testinggo.AssertNoError(t, err)
 		cache.Entries["TEST"] = []*bcgo.BlockEntry{
 			&bcgo.BlockEntry{
@@ -207,7 +212,7 @@ func TestNodeMine(t *testing.T) {
 		r := &bcgo.Record{
 			Payload: []byte("FooBar"),
 		}
-		rh, err := bcgo.HashProtobuf(r)
+		rh, err := cryptogo.HashProtobuf(r)
 		testinggo.AssertNoError(t, err)
 		cache.Entries["TEST"] = []*bcgo.BlockEntry{
 			&bcgo.BlockEntry{
@@ -250,7 +255,7 @@ func TestNodeMine(t *testing.T) {
 		r := &bcgo.Record{
 			Payload: []byte("FooBar"),
 		}
-		rh, err := bcgo.HashProtobuf(r)
+		rh, err := cryptogo.HashProtobuf(r)
 		testinggo.AssertNoError(t, err)
 		cache.Entries["TEST"] = []*bcgo.BlockEntry{
 			&bcgo.BlockEntry{
@@ -283,12 +288,12 @@ func TestNodeMine(t *testing.T) {
 		r1 := &bcgo.Record{
 			Payload: []byte("Foo"),
 		}
-		rh1, err := bcgo.HashProtobuf(r1)
+		rh1, err := cryptogo.HashProtobuf(r1)
 		testinggo.AssertNoError(t, err)
 		r2 := &bcgo.Record{
 			Payload: []byte("Bar"),
 		}
-		rh2, err := bcgo.HashProtobuf(r2)
+		rh2, err := cryptogo.HashProtobuf(r2)
 		testinggo.AssertNoError(t, err)
 		cache.Entries["TEST"] = []*bcgo.BlockEntry{
 			&bcgo.BlockEntry{
