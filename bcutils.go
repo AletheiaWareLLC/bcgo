@@ -309,7 +309,15 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 	if size > MAX_PAYLOAD_SIZE_BYTES {
 		return nil, nil, errors.New("Payload too large: " + BinarySizeToString(size) + " max: " + BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
-	acl := make([]*Record_Access, 0, len(access))
+
+	// Create record
+	record := &Record{
+		Timestamp: uint64(time.Now().UnixNano()),
+		Creator:   creatorAlias,
+		Reference: references,
+	}
+
+	// Encrypt payload if access map is not empty
 	var key []byte
 	var err error
 	if len(access) > 0 {
@@ -329,14 +337,16 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 			if err != nil {
 				return nil, nil, err
 			}
-			acl = append(acl, &Record_Access{
+			record.Access = append(record.Access, &Record_Access{
 				Alias:               a,
 				SecretKey:           secretKey,
 				EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
 			})
 		}
+		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING
 	} else {
 		log.Println("No aliases granted access, creating public record")
+		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION
 	}
 
 	// Hash payload
@@ -348,19 +358,11 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 		return nil, nil, err
 	}
 
-	// Create record
-	record := &Record{
-		Timestamp:           uint64(time.Now().UnixNano()),
-		Creator:             creatorAlias,
-		Payload:             payload,
-		EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING,
-		Signature:           signature,
-		SignatureAlgorithm:  cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS,
-		Reference:           references,
-	}
-	if acl != nil && len(acl) > 0 {
-		record.Access = acl
-	}
+	// Set payload and signature
+	record.Payload = payload
+	record.Signature = signature
+	record.SignatureAlgorithm = cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS
+
 	return key, record, nil
 }
 

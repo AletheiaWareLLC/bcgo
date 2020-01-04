@@ -19,7 +19,10 @@ package bcgo_test
 import (
 	"bufio"
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
 	"github.com/AletheiaWareLLC/bcgo"
+	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/AletheiaWareLLC/testinggo"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
@@ -181,6 +184,46 @@ func TestGetCacheDir(t *testing.T) {
 		testinggo.AssertNoError(t, err)
 		if cache != "foobar123" {
 			t.Fatalf("Incorrect cache directory; expected foobar123, got '%s'", cache)
+		}
+	})
+}
+
+func TestCreateRecord(t *testing.T) {
+	t.Run("Encrypted", func(t *testing.T) {
+		key, err := rsa.GenerateKey(rand.Reader, 4096)
+		if err != nil {
+			t.Error("Could not generate key:", err)
+		}
+		acl := map[string]*rsa.PublicKey{
+			"TESTER": &key.PublicKey,
+		}
+		k, record, err := bcgo.CreateRecord("TESTER", key, acl, nil, []byte("PAYLOAD"))
+		testinggo.AssertNoError(t, err)
+		if len(k) == 0 {
+			t.Fatalf("Record key is empty")
+		}
+		if len(record.Access) != 1 {
+			t.Fatalf("Record access list empty")
+		}
+		if record.Access[0].Alias != "TESTER" {
+			t.Fatalf("Incorrect record access alias")
+		}
+		if record.EncryptionAlgorithm != cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING {
+			t.Fatalf("Incorrect record encryption algorithm")
+		}
+	})
+	t.Run("Unencrypted", func(t *testing.T) {
+		key, err := rsa.GenerateKey(rand.Reader, 4096)
+		if err != nil {
+			t.Error("Could not generate key:", err)
+		}
+		k, record, err := bcgo.CreateRecord("TESTER", key, nil, nil, []byte("PAYLOAD"))
+		testinggo.AssertNoError(t, err)
+		if len(k) != 0 {
+			t.Fatalf("Record key is not empty")
+		}
+		if record.EncryptionAlgorithm != cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION {
+			t.Fatalf("Incorrect record encryption algorithm")
 		}
 	})
 }
