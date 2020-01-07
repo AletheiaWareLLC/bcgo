@@ -115,8 +115,12 @@ func DecimalSizeToString(size uint64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.2f", s), "0"), ".") + unit
 }
 
+func Timestamp() uint64 {
+	return uint64(time.Now().UnixNano())
+}
+
 func TimestampToString(timestamp uint64) string {
-	return time.Unix(0, int64(timestamp)).Format("2006-01-02 15:04:05")
+	return time.Unix(0, int64(timestamp)).UTC().Format("2006-01-02 15:04:05")
 }
 
 func MoneyToString(currency string, amount int64) string {
@@ -213,7 +217,7 @@ func SetupLogging(directory string) (*os.File, error) {
 	if err := os.MkdirAll(store, os.ModePerm); err != nil {
 		return nil, err
 	}
-	logFile, err := os.OpenFile(path.Join(store, time.Now().Format(time.RFC3339)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(path.Join(store, time.Now().UTC().Format(time.RFC3339)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +297,7 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 			break
 		}
 		size = size + count
-		key, record, err := CreateRecord(creatorAlias, creatorKey, access, references, payload[:count])
+		key, record, err := CreateRecord(Timestamp(), creatorAlias, creatorKey, access, references, payload[:count])
 		if err != nil {
 			return 0, err
 		}
@@ -304,7 +308,7 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 	return size, nil
 }
 
-func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
+func CreateRecord(timestamp uint64, creatorAlias string, creatorKey *rsa.PrivateKey, access map[string]*rsa.PublicKey, references []*Reference, payload []byte) ([]byte, *Record, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
 		return nil, nil, errors.New("Payload too large: " + BinarySizeToString(size) + " max: " + BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES))
@@ -312,7 +316,7 @@ func CreateRecord(creatorAlias string, creatorKey *rsa.PrivateKey, access map[st
 
 	// Create record
 	record := &Record{
-		Timestamp: uint64(time.Now().UnixNano()),
+		Timestamp: timestamp,
 		Creator:   creatorAlias,
 		Reference: references,
 	}

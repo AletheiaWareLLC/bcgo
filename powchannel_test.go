@@ -54,7 +54,7 @@ func TestPoWChannelValid(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		channel := makePoWChannel(t, 1)
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
 		testinggo.AssertNoError(t, bcgo.Update(channel, cache, nil, hash, block))
 	})
@@ -62,7 +62,7 @@ func TestPoWChannelValid(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		channel := makePoWChannel(t, 1000)
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
 		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_INVALID, fmt.Sprintf(bcgo.ERROR_HASH_TOO_WEAK, 255, 1000)), bcgo.Update(channel, cache, nil, hash, block))
 	})

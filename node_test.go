@@ -92,11 +92,11 @@ func TestNodeWrite(t *testing.T) {
 		if err != nil {
 			t.Error("Could not generate key:", err)
 		}
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", key, cache, nil)
 		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
 		payload := make([]byte, bcgo.MAX_PAYLOAD_SIZE_BYTES+1)
-		_, err = node.Write(channel, nil, nil, payload)
+		_, err = node.Write(0, channel, nil, nil, payload)
 		testinggo.AssertError(t, "Payload too large: 10MiB max: 10MiB", err)
 		if len(cache.Entries) != 0 {
 			t.Fatalf("Entry written to cache")
@@ -106,7 +106,7 @@ func TestNodeWrite(t *testing.T) {
 
 func TestNodeGetLastMinedTimestamp(t *testing.T) {
 	t.Run("NoHead", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 		channel := makeMockThresholdChannel(t, bcgo.THRESHOLD_STANDARD)
 
@@ -118,7 +118,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 	})
 
 	t.Run("LastBlock", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		block := &bcgo.Block{
@@ -141,7 +141,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 	})
 
 	t.Run("FirstBlock", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		block := &bcgo.Block{
@@ -176,7 +176,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 
 func TestNodeMine(t *testing.T) {
 	t.Run("BlockTooBig", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		r := &bcgo.Record{
@@ -197,7 +197,7 @@ func TestNodeMine(t *testing.T) {
 	})
 
 	t.Run("ChannelHead", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		block1 := &bcgo.Block{
@@ -249,7 +249,7 @@ func TestNodeMine(t *testing.T) {
 	})
 
 	t.Run("SingleEntry", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		r := &bcgo.Record{
@@ -282,7 +282,7 @@ func TestNodeMine(t *testing.T) {
 	})
 
 	t.Run("MultipleEntry", func(t *testing.T) {
-		cache := makeCache(t)
+		cache := makeMockCache(t)
 		node := makeNode(t, "TESTER", nil, cache, nil)
 
 		r1 := &bcgo.Record{

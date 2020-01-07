@@ -23,7 +23,6 @@ import (
 	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"sort"
-	"time"
 )
 
 const (
@@ -98,12 +97,12 @@ func (n *Node) GetChannels() []Channel {
 	return channels
 }
 
-func (n *Node) Write(channel ThresholdChannel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
+func (n *Node) Write(timestamp uint64, channel ThresholdChannel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
 		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES)))
 	}
-	_, record, err := CreateRecord(n.Alias, n.Key, acl, references, payload)
+	_, record, err := CreateRecord(timestamp, n.Alias, n.Key, acl, references, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +148,7 @@ func (n *Node) Mine(channel ThresholdChannel, listener MiningListener) ([]byte, 
 	// TODO check record signature of each entry
 
 	block := &Block{
-		Timestamp:   uint64(time.Now().UnixNano()),
+		Timestamp:   Timestamp(),
 		ChannelName: channel.GetName(),
 		Length:      1,
 		Miner:       n.Alias,

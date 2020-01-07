@@ -90,7 +90,7 @@ func TestDecimalSizeToString(t *testing.T) {
 
 func TestTimestampToString(t *testing.T) {
 	given := uint64(1565656565656565656)
-	expected := "2019-08-12 17:36:05"
+	expected := "2019-08-13 00:36:05"
 	got := bcgo.TimestampToString(given)
 	if got != expected {
 		t.Fatalf("expected %s, instead got %s", expected, got)
@@ -197,10 +197,13 @@ func TestCreateRecord(t *testing.T) {
 		acl := map[string]*rsa.PublicKey{
 			"TESTER": &key.PublicKey,
 		}
-		k, record, err := bcgo.CreateRecord("TESTER", key, acl, nil, []byte("PAYLOAD"))
+		k, record, err := bcgo.CreateRecord(1234, "TESTER", key, acl, nil, []byte("PAYLOAD"))
 		testinggo.AssertNoError(t, err)
 		if len(k) == 0 {
 			t.Fatalf("Record key is empty")
+		}
+		if record.Timestamp != 1234 {
+			t.Fatalf("Incorrect record timestamp")
 		}
 		if len(record.Access) != 1 {
 			t.Fatalf("Record access list empty")
@@ -217,10 +220,13 @@ func TestCreateRecord(t *testing.T) {
 		if err != nil {
 			t.Error("Could not generate key:", err)
 		}
-		k, record, err := bcgo.CreateRecord("TESTER", key, nil, nil, []byte("PAYLOAD"))
+		k, record, err := bcgo.CreateRecord(1234, "TESTER", key, nil, nil, []byte("PAYLOAD"))
 		testinggo.AssertNoError(t, err)
 		if len(k) != 0 {
 			t.Fatalf("Record key is not empty")
+		}
+		if record.Timestamp != 1234 {
+			t.Fatalf("Incorrect record timestamp")
 		}
 		if record.EncryptionAlgorithm != cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION {
 			t.Fatalf("Incorrect record encryption algorithm")

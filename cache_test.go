@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-func makeCache(t *testing.T) *MockCache {
+func makeMockCache(t *testing.T) *MockCache {
 	t.Helper()
 	return &MockCache{
 		Block:   make(map[string]*bcgo.Block),
