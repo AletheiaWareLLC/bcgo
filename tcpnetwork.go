@@ -125,6 +125,10 @@ func (t *TcpNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 				}
 				reference := &Reference{}
 				if err := ReadDelimitedProtobuf(reader, reference); err != nil {
+					if err == io.EOF {
+						// Ignore
+						break
+					}
 					return err
 				}
 
