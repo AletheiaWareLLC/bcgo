@@ -136,11 +136,19 @@ func MoneyToString(currency string, amount int64) string {
 }
 
 func IsDebug() bool {
-	debug, ok := os.LookupEnv("DEBUG")
+	return GetBooleanFlag("DEBUG")
+}
+
+func IsBeta() bool {
+	return GetBooleanFlag("BETA")
+}
+
+func GetBooleanFlag(name string) bool {
+	flag, ok := os.LookupEnv(name)
 	if !ok {
 		return false
 	}
-	b, err := strconv.ParseBool(debug)
+	b, err := strconv.ParseBool(flag)
 	if err != nil {
 		return false
 	}
