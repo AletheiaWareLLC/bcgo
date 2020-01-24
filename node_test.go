@@ -83,7 +83,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
 
 		channel := makeMockChannel(t)
-		channel.SetHead(hash)
+		channel.Head = hash
 
 		time, err := node.GetLastMinedTimestamp(channel)
 		testinggo.AssertNoError(t, err)
@@ -116,7 +116,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 		cache.Block[base64.RawURLEncoding.EncodeToString(hash2)] = block2
 
 		channel := makeMockChannel(t)
-		channel.SetHead(hash2)
+		channel.Head = hash2
 
 		time, err := node.GetLastMinedTimestamp(channel)
 		testinggo.AssertNoError(t, err)
@@ -174,7 +174,7 @@ func TestNodeMine(t *testing.T) {
 		}
 
 		channel := makeMockChannel(t)
-		channel.SetHead(hash1)
+		channel.Head = hash1
 		hash2, block2, err := node.Mine(channel, bcgo.THRESHOLD_I, nil)
 		testinggo.AssertNoError(t, err)
 		if hash2 == nil {

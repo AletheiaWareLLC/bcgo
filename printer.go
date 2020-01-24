@@ -27,15 +27,15 @@ type PrintingMiningListener struct {
 }
 
 func (p *PrintingMiningListener) OnMiningStarted(channel *Channel, size uint64) {
-	fmt.Fprintf(p.Output, "Mining %s %s\n", channel.GetName(), BinarySizeToString(size))
+	fmt.Fprintf(p.Output, "Mining %s %s\n", channel.Name, BinarySizeToString(size))
 }
 
 func (p *PrintingMiningListener) OnNewMaxOnes(channel *Channel, nonce, ones uint64) {
-	fmt.Fprintf(p.Output, "Mining %s %d %d/512\n", channel.GetName(), nonce, ones)
+	fmt.Fprintf(p.Output, "Mining %s %d %d/512\n", channel.Name, nonce, ones)
 }
 
 func (p *PrintingMiningListener) OnMiningThresholdReached(channel *Channel, hash []byte, block *Block) {
-	fmt.Fprintf(p.Output, "Mined %s %s %s\n", channel.GetName(), TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
+	fmt.Fprintf(p.Output, "Mined %s %s %s\n", channel.Name, TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
 }
 
 /*

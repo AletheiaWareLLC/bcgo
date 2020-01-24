@@ -91,7 +91,7 @@ func GetCentenniallyValidator(channel *Channel) *PeriodicValidator {
 
 // Fills the given set with the names of all channels validated in this chain
 func (p *PeriodicValidator) FillChannelSet(set map[string]bool, cache Cache, network Network) error {
-	return Iterate(p.Channel.GetName(), p.Channel.GetHead(), nil, cache, network, func(h []byte, b *Block) error {
+	return Iterate(p.Channel.Name, p.Channel.Head, nil, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
 			// Unmarshal as Reference
 			r := &Reference{}
@@ -109,7 +109,7 @@ func (p *PeriodicValidator) FillChannelSet(set map[string]bool, cache Cache, net
 func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
 	// Mark all block hashes for channel in p.Channel
 	set := make(map[string]bool)
-	if err := Iterate(p.Channel.GetName(), p.Channel.GetHead(), nil, cache, network, func(h []byte, b *Block) error {
+	if err := Iterate(p.Channel.Name, p.Channel.Head, nil, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
 			// Unmarshal as Reference
 			r := &Reference{}
@@ -117,7 +117,7 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 			if err != nil {
 				return err
 			}
-			if r.ChannelName == channel.GetName() {
+			if r.ChannelName == channel.Name {
 				set[base64.RawURLEncoding.EncodeToString(r.BlockHash)] = true
 			}
 		}
@@ -127,7 +127,7 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 	}
 
 	// Unmark all block hashes which appear is chain
-	if err := Iterate(channel.GetName(), hash, block, cache, network, func(h []byte, b *Block) error {
+	if err := Iterate(channel.Name, hash, block, cache, network, func(h []byte, b *Block) error {
 		set[base64.RawURLEncoding.EncodeToString(h)] = false
 		return nil
 	}); err != nil {
@@ -149,7 +149,7 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 
 func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener MiningListener) error {
 	now := time.Now().UTC()
-	last := int64(p.Channel.GetTimestamp())
+	last := int64(p.Channel.Timestamp)
 	// Check if the time since last update is greater than period
 	if last == 0 || now.Sub(time.Unix(0, last)) > p.Period {
 		unix := uint64(now.UnixNano())
@@ -157,8 +157,8 @@ func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener Mining
 		if err != nil {
 			return err
 		}
-		name := p.Channel.GetName()
-		head := p.Channel.GetHead()
+		name := p.Channel.Name
+		head := p.Channel.Head
 		var block *Block
 		if head != nil {
 			block, err = GetBlock(name, node.Cache, node.Network, head)
@@ -217,16 +217,16 @@ func CreateValidationBlock(timestamp uint64, channel, alias string, head []byte,
 func CreateValidationEntries(timestamp uint64, node *Node) ([]*BlockEntry, error) {
 	var entries []*BlockEntry
 	for _, channel := range node.GetChannels() {
-		head := channel.GetHead()
+		head := channel.Head
 		if head == nil {
 			continue
 		}
-		updated := channel.GetTimestamp()
+		updated := channel.Timestamp
 		if timestamp < updated {
 			// Head was updated after Validation Cycle started
 			// TODO iterate back through channel blocks until timestamp > block.Timestamp
 		}
-		entry, err := CreateValidationEntry(timestamp, node, channel.GetName(), updated, head)
+		entry, err := CreateValidationEntry(timestamp, node, channel.Name, updated, head)
 		if err != nil {
 			return nil, err
 		}

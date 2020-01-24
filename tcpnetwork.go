@@ -135,13 +135,13 @@ func (t *TcpNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 				remote := reference.BlockHash
 				if bytes.Equal(hash, remote) {
 					// Broadcast accepted
-					fmt.Printf("Broadcast %s block %s to %s\n", channel.GetName(), base64.RawURLEncoding.EncodeToString(hash), peer)
+					fmt.Printf("Broadcast %s block %s to %s\n", channel.Name, base64.RawURLEncoding.EncodeToString(hash), peer)
 					break
 				} else {
 					fmt.Println(peer, base64.RawURLEncoding.EncodeToString(remote))
 
 					// Broadcast rejected
-					referencedBlock, err := GetBlock(channel.GetName(), cache, t, remote)
+					referencedBlock, err := GetBlock(channel.Name, cache, t, remote)
 					if err != nil {
 						return err
 					}

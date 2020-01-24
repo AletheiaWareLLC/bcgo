@@ -40,12 +40,8 @@ type PoWValidator struct {
 	Threshold uint64
 }
 
-func (p *PoWValidator) GetThreshold() uint64 {
-	return p.Threshold
-}
-
 func (p *PoWValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
-	return Iterate(channel.GetName(), hash, block, cache, network, func(h []byte, b *Block) error {
+	return Iterate(channel.Name, hash, block, cache, network, func(h []byte, b *Block) error {
 		// Check hash ones pass threshold
 		ones := Ones(h)
 		if ones < p.Threshold {

@@ -72,7 +72,7 @@ func GetNode(directory string, cache Cache, network Network) (*Node, error) {
 }
 
 func (n *Node) AddChannel(channel *Channel) {
-	n.Channels[channel.GetName()] = channel
+	n.Channels[channel.Name] = channel
 }
 
 func (n *Node) GetChannel(name string) (*Channel, error) {
@@ -106,13 +106,13 @@ func (n *Node) Write(timestamp uint64, channel *Channel, acl map[string]*rsa.Pub
 	if err != nil {
 		return nil, err
 	}
-	return WriteRecord(channel.GetName(), n.Cache, record)
+	return WriteRecord(channel.Name, n.Cache, record)
 }
 
 func (n *Node) GetLastMinedTimestamp(channel *Channel) (uint64, error) {
 	var timestamp uint64
 	// Iterate through the chain to find the most recent block mined by this node
-	if err := Iterate(channel.GetName(), channel.GetHead(), nil, n.Cache, n.Network, func(h []byte, b *Block) error {
+	if err := Iterate(channel.Name, channel.Head, nil, n.Cache, n.Network, func(h []byte, b *Block) error {
 		if b.Miner == n.Alias {
 			timestamp = b.Timestamp
 			return StopIterationError{}
@@ -136,26 +136,26 @@ func (n *Node) Mine(channel *Channel, threshold uint64, listener MiningListener)
 		return nil, nil, err
 	}
 
-	entries, err := n.Cache.GetBlockEntries(channel.GetName(), timestamp)
+	entries, err := n.Cache.GetBlockEntries(channel.Name, timestamp)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if len(entries) == 0 {
-		return nil, nil, errors.New(fmt.Sprintf(ERROR_NO_ENTRIES_TO_MINE, channel.GetName()))
+		return nil, nil, errors.New(fmt.Sprintf(ERROR_NO_ENTRIES_TO_MINE, channel.Name))
 	}
 
 	// TODO check record signature of each entry
 
 	block := &Block{
 		Timestamp:   Timestamp(),
-		ChannelName: channel.GetName(),
+		ChannelName: channel.Name,
 		Length:      1,
 		Miner:       n.Alias,
 		Entry:       entries,
 	}
 
-	previousHash := channel.GetHead()
+	previousHash := channel.Head
 	if previousHash != nil {
 		previousBlock, err := n.Cache.GetBlock(previousHash)
 		if err != nil {

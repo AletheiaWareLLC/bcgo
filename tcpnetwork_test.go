@@ -168,7 +168,7 @@ func TestTcpNetworkBlock(t *testing.T) {
 				"localhost",
 			},
 		}
-		_, err := bcgo.GetBlock(channel.GetName(), cache, network, []byte("FAKEHASH"))
+		_, err := bcgo.GetBlock(channel.Name, cache, network, []byte("FAKEHASH"))
 		testinggo.AssertError(t, "Could not get TEST block from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestTcpNetworkBlock(t *testing.T) {
 		// Block Listener
 		makeBlockListener(t, server.BlockListener, hash, block)
 
-		b, err := bcgo.GetBlock(channel.GetName(), cache, network, hash)
+		b, err := bcgo.GetBlock(channel.Name, cache, network, hash)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertProtobufEqual(t, block, b)
 	})
@@ -204,7 +204,7 @@ func TestTcpNetworkHead(t *testing.T) {
 				"localhost",
 			},
 		}
-		_, err := bcgo.GetHeadReference(channel.GetName(), cache, network)
+		_, err := bcgo.GetHeadReference(channel.Name, cache, network)
 		testinggo.AssertError(t, "Could not get TEST head from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
@@ -225,7 +225,7 @@ func TestTcpNetworkHead(t *testing.T) {
 		// Head Listener
 		makeHeadListener(t, server.HeadListener, hash)
 
-		h, err := bcgo.GetHeadReference(channel.GetName(), cache, network)
+		h, err := bcgo.GetHeadReference(channel.Name, cache, network)
 		testinggo.AssertNoError(t, err)
 		if !bytes.Equal(hash, h.BlockHash) {
 			t.Fatalf("Incorrect head; expected '%s', got '%s'", base64.RawURLEncoding.EncodeToString(hash), base64.RawURLEncoding.EncodeToString(h.BlockHash))
@@ -246,7 +246,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			},
 		}
 		cache.PutBlock(hash, block)
-		channel.SetHead(hash)
+		channel.Head = hash
 
 		testinggo.AssertMatchesError(t, "dial tcp .*:23232: connect: connection refused", channel.Push(cache, network))
 	})
@@ -262,7 +262,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			},
 		}
 		cache.PutBlock(hash1, block1)
-		channel.SetHead(hash1)
+		channel.Head = hash1
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -299,7 +299,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 		cache.PutBlock(hash1, block1)
 		cache.PutBlock(hash2, block2)
 		cache.PutBlock(hash3, block3)
-		channel.SetHead(hash3)
+		channel.Head = hash3
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -325,7 +325,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 			},
 		}
 		cache.PutBlock(hash1, block1)
-		channel.SetHead(hash1)
+		channel.Head = hash1
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)

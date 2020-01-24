@@ -44,7 +44,7 @@ func ExampleNode() {
 	}
 
 	// Write record to cache
-	_, err = bcgo.WriteRecord(channel.GetName(), cache, &bcgo.Record{
+	_, err = bcgo.WriteRecord(channel.Name, cache, &bcgo.Record{
 		Payload: []byte("Example!"),
 	})
 	if err != nil {
@@ -99,7 +99,7 @@ func ExampleNode_Network() {
 	}
 
 	// Write record to cache
-	_, err = bcgo.WriteRecord(channel.GetName(), cache, &bcgo.Record{
+	_, err = bcgo.WriteRecord(channel.Name, cache, &bcgo.Record{
 		Payload: []byte("Example!"),
 	})
 	if err != nil {

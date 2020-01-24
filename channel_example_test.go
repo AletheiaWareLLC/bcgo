@@ -24,15 +24,6 @@ import (
 	"log"
 )
 
-func Channel_GetName() {
-	channel := &bcgo.Channel{
-		Name: "FooBar",
-	}
-	fmt.Println(channel.GetName())
-	// Output:
-	// FooBar
-}
-
 func Channel_String() {
 	channel := &bcgo.Channel{
 		Name: "FooBar",
@@ -40,15 +31,6 @@ func Channel_String() {
 	fmt.Println(channel.String())
 	// Output:
 	// FooBar
-}
-
-func Channel_GetHead() {
-	channel := &bcgo.Channel{
-		Name: "FooBar",
-	}
-	fmt.Println(channel.GetHead())
-	// Output:
-	// []
 }
 
 func Channel_GetHead_update() {
@@ -67,7 +49,7 @@ func Channel_GetHead_update() {
 	if err := channel.Update(cache, nil, hash, block); err != nil {
 		log.Fatal("Could not update channel: ", err)
 	}
-	fmt.Println(channel.GetHead())
+	fmt.Println(channel.Head)
 	// Output:
 	// FooBar updated to 1969-12-31 16:00:00 FWUibWQ62yof8r5ZeDq-frnkFLno_RioONTrlHrwjuaCRW8W_sMmcdYW3pcV-g4QLY8L-0Nl_Mx5oiwVkJKTEw
 	// [21 101 34 109 100 58 219 42 31 242 190 89 120 58 190 126 185 228 20 185 232 253 24 168 56 212 235 148 122 240 142 230 130 69 111 22 254 195 38 113 214 22 222 151 21 250 14 16 45 143 11 251 67 101 252 204 121 162 44 21 144 146 147 19]
@@ -110,7 +92,7 @@ func Channel_filecache() {
 	if err := channel2.LoadHead(cache, nil); err != nil {
 		log.Fatal("Could not load head from cache: ", err)
 	}
-	fmt.Println(channel2.GetHead())
+	fmt.Println(channel2.Head)
 	// Output:
 	// FooBar updated to 1969-12-31 16:00:00 FWUibWQ62yof8r5ZeDq-frnkFLno_RioONTrlHrwjuaCRW8W_sMmcdYW3pcV-g4QLY8L-0Nl_Mx5oiwVkJKTEw
 	// [21 101 34 109 100 58 219 42 31 242 190 89 120 58 190 126 185 228 20 185 232 253 24 168 56 212 235 148 122 240 142 230 130 69 111 22 254 195 38 113 214 22 222 151 21 250 14 16 45 143 11 251 67 101 252 204 121 162 44 21 144 146 147 19]
