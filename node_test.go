@@ -144,7 +144,7 @@ func TestNodeMine(t *testing.T) {
 		}
 
 		channel := makeMockChannel(t)
-		_, _, err = node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+		_, _, err = node.Mine(channel, bcgo.THRESHOLD_I, nil)
 		testinggo.AssertError(t, "Block too large: 2GiB max: 2GiB", err)
 	})
 
@@ -175,7 +175,7 @@ func TestNodeMine(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		channel.SetHead(hash1)
-		hash2, block2, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+		hash2, block2, err := node.Mine(channel, bcgo.THRESHOLD_I, nil)
 		testinggo.AssertNoError(t, err)
 		if hash2 == nil {
 			t.Fatalf("Mined block hash is nil")
@@ -217,7 +217,7 @@ func TestNodeMine(t *testing.T) {
 		}
 
 		channel := makeMockChannel(t)
-		_, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+		_, block, err := node.Mine(channel, bcgo.THRESHOLD_I, nil)
 		testinggo.AssertNoError(t, err)
 		if block.Length != 1 {
 			t.Fatalf("Incorrect length; expected 1, got '%d'", block.Length)
@@ -259,7 +259,7 @@ func TestNodeMine(t *testing.T) {
 		}
 
 		channel := makeMockChannel(t)
-		_, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+		_, block, err := node.Mine(channel, bcgo.THRESHOLD_I, nil)
 		testinggo.AssertNoError(t, err)
 		if block.Length != 1 {
 			t.Fatalf("Incorrect length; expected 1, got '%d'", block.Length)

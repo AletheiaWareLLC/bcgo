@@ -35,12 +35,14 @@ const (
 	PERIOD_HOURLY       = time.Hour
 	PERIOD_DAILY        = PERIOD_HOURLY * 24
 	PERIOD_YEARLY       = PERIOD_HOURLY * 8766   // (365.25 * 24)
+	PERIOD_DECENNIALLY  = PERIOD_HOURLY * 87660  // (10 * 365.25 * 24)
 	PERIOD_CENTENNIALLY = PERIOD_HOURLY * 876600 // (100 * 365.25 * 24)
 
-	THRESHOLD_PERIOD_HOUR    = THRESHOLD_EASY
-	THRESHOLD_PERIOD_DAY     = THRESHOLD_STANDARD
-	THRESHOLD_PERIOD_YEAR    = THRESHOLD_HARD
-	THRESHOLD_PERIOD_CENTURY = THRESHOLD_HARDEST
+	THRESHOLD_PERIOD_HOUR    = THRESHOLD_F
+	THRESHOLD_PERIOD_DAY     = THRESHOLD_E
+	THRESHOLD_PERIOD_YEAR    = THRESHOLD_D
+	THRESHOLD_PERIOD_DECADE  = THRESHOLD_C
+	THRESHOLD_PERIOD_CENTURY = THRESHOLD_B
 )
 
 type PeriodicValidator struct {
@@ -70,6 +72,13 @@ func GetYearlyValidator(channel *Channel) *PeriodicValidator {
 	return &PeriodicValidator{
 		Channel: channel,
 		Period:  PERIOD_YEARLY,
+	}
+}
+
+func GetDecenniallyValidator(channel *Channel) *PeriodicValidator {
+	return &PeriodicValidator{
+		Channel: channel,
+		Period:  PERIOD_DECENNIALLY,
 	}
 }
 

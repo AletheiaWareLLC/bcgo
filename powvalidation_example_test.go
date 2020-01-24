@@ -25,7 +25,7 @@ import (
 
 func ExamplePoWValidator_Threshold() {
 	validator := &bcgo.PoWValidator{
-		Threshold: bcgo.THRESHOLD_STANDARD,
+		Threshold: bcgo.THRESHOLD_G,
 	}
 	channel := &bcgo.Channel{
 		Name: "FooBar",

@@ -65,7 +65,7 @@ func ExampleNode() {
 	}
 
 	// Mine all records in cache
-	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_G, nil)
 	if err != nil {
 		log.Fatal("Could not mine:", err)
 	}
@@ -120,7 +120,7 @@ func ExampleNode_Network() {
 	}
 
 	// Mine all records in cache
-	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_STANDARD, nil)
+	hash, block, err := node.Mine(channel, bcgo.THRESHOLD_G, nil)
 	if err != nil {
 		log.Fatal("Could not mine:", err)
 	}
