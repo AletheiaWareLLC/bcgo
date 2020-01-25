@@ -177,8 +177,8 @@ func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener Mining
 
 // Periodically mines a new block into the chain containing the head hashes of all open channels
 func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningListener) {
-	// 3 times per period
-	p.Ticker = time.NewTicker(p.Period / 3)
+	p.Ticker = time.NewTicker(p.Period)
+	c := p.Ticker.C
 	for {
 		go func() {
 			if err := p.Update(node, threshold, listener); err != nil {
@@ -186,7 +186,9 @@ func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningL
 				p.Stop()
 			}
 		}()
-		<-p.Ticker.C
+		if _, ok := <-c; !ok {
+			return
+		}
 	}
 }
 
