@@ -135,8 +135,8 @@ func MoneyToString(currency string, amount int64) string {
 	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
 }
 
-func IsDebug() bool {
-	return GetBooleanFlag("DEBUG")
+func IsLive() bool {
+	return GetBooleanFlag("LIVE")
 }
 
 func IsBeta() bool {
@@ -156,10 +156,10 @@ func GetBooleanFlag(name string) bool {
 }
 
 func GetBCHost() string {
-	if IsDebug() {
-		return BC_HOST_TEST
+	if IsLive() {
+		return BC_HOST
 	}
-	return BC_HOST
+	return BC_HOST_TEST
 }
 
 func GetBCWebsite() string {
@@ -239,9 +239,9 @@ func GetPeers(directory string) ([]string, error) {
 	if ok {
 		return strings.Split(string(env), ","), nil
 	} else {
-		filename := "peers"
-		if IsDebug() {
-			filename = "test-peers"
+		filename := "test-peers"
+		if IsLive() {
+			filename = "peers"
 		}
 		filepath := path.Join(directory, filename)
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
@@ -258,9 +258,9 @@ func GetPeers(directory string) ([]string, error) {
 }
 
 func AddPeer(directory, peer string) error {
-	filename := "peers"
-	if IsDebug() {
-		filename = "test-peers"
+	filename := "test-peers"
+	if IsLive() {
+		filename = "peers"
 	}
 	file, err := os.OpenFile(path.Join(directory, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
