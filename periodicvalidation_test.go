@@ -187,15 +187,35 @@ func TestCreateValidationEntries(t *testing.T) {
 	node := makeNode(t, "TESTER", key, cache, nil)
 	channel := makeMockChannel(t)
 	node.AddChannel(channel)
-	block := makeBlock(t, 1234)
-	hash := makeHash(t, block)
-	channel.Update(cache, nil, hash, block)
-	entries, err := bcgo.CreateValidationEntries(0, node)
-	testinggo.AssertNoError(t, err)
-	if len(entries) != 1 {
-		t.Fatal("Incorrect number of entries")
-	}
-	AssertEntry(t, 1234, "TEST", hash, entries[0])
+	block1 := makeBlock(t, 1234)
+	hash1 := makeHash(t, block1)
+	channel.Update(cache, nil, hash1, block1)
+	block2 := makeLinkedBlock(t, 5678, hash1, block1)
+	hash2 := makeHash(t, block2)
+	channel.Update(cache, nil, hash2, block2)
+	t.Run("Before", func(t *testing.T) {
+		entries, err := bcgo.CreateValidationEntries(0123, node)
+		testinggo.AssertNoError(t, err)
+		if len(entries) != 0 {
+			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 0, len(entries))
+		}
+	})
+	t.Run("Middle", func(t *testing.T) {
+		entries, err := bcgo.CreateValidationEntries(3456, node)
+		testinggo.AssertNoError(t, err)
+		if len(entries) != 1 {
+			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 1, len(entries))
+		}
+		AssertEntry(t, 1234, "TEST", hash1, entries[0])
+	})
+	t.Run("After", func(t *testing.T) {
+		entries, err := bcgo.CreateValidationEntries(9012, node)
+		testinggo.AssertNoError(t, err)
+		if len(entries) != 1 {
+			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 1, len(entries))
+		}
+		AssertEntry(t, 5678, "TEST", hash2, entries[0])
+	})
 }
 
 func TestCreateValidationEntry(t *testing.T) {

@@ -145,43 +145,52 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 	return nil
 }
 
-func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener MiningListener) error {
-	now := time.Now().UTC()
-	last := int64(p.Channel.Timestamp)
-	// Check if the time since last update is greater than period
-	if last == 0 || now.Sub(time.Unix(0, last)) > p.Period {
-		unix := uint64(now.UnixNano())
-		entries, err := CreateValidationEntries(unix, node)
+func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener MiningListener, timestamp uint64) error {
+	entries, err := CreateValidationEntries(timestamp, node)
+	if err != nil {
+		return err
+	}
+	name := p.Channel.Name
+	head := p.Channel.Head
+	var block *Block
+	if head != nil {
+		block, err = GetBlock(name, node.Cache, node.Network, head)
 		if err != nil {
 			return err
 		}
-		name := p.Channel.Name
-		head := p.Channel.Head
-		var block *Block
-		if head != nil {
-			block, err = GetBlock(name, node.Cache, node.Network, head)
-			if err != nil {
-				return err
-			}
-		}
-		b := CreateValidationBlock(unix, name, node.Alias, head, block, entries)
-		_, _, err = node.MineBlock(p.Channel, threshold, listener, b)
-		if err != nil {
-			return err
-		}
+	}
+	b := CreateValidationBlock(timestamp, name, node.Alias, head, block, entries)
+	_, _, err = node.MineBlock(p.Channel, threshold, listener, b)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 // Periodically mines a new block into the chain containing the head hashes of all open channels
 func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningListener) {
-	p.Ticker = time.NewTicker(p.Period)
+	// 3 times per period
+	p.Ticker = time.NewTicker(p.Period / 3)
 	c := p.Ticker.C
 	for {
 		go func() {
-			if err := p.Update(node, threshold, listener); err != nil {
-				log.Println(err)
-				p.Stop()
+			for {
+				now := time.Now().UTC()
+				last := int64(p.Channel.Timestamp)
+				next := time.Unix(0, last).Add(p.Period)
+				var timestamp uint64
+				if last == 0 {
+					timestamp = uint64(now.UnixNano())
+				} else if now.After(next) {
+					timestamp = uint64(next.UnixNano())
+				} else {
+					break
+				}
+				if err := p.Update(node, threshold, listener, timestamp); err != nil {
+					log.Println(err)
+					p.Stop()
+					break
+				}
 			}
 		}()
 		if _, ok := <-c; !ok {
@@ -218,13 +227,29 @@ func CreateValidationEntries(timestamp uint64, node *Node) ([]*BlockEntry, error
 	var entries []*BlockEntry
 	for _, channel := range node.GetChannels() {
 		head := channel.Head
+		updated := channel.Timestamp
+		if updated > timestamp {
+			// Channel was updated after Validation Cycle started
+			head = nil
+			// Iterate back through channel blocks until block.Timestamp <= timestamp
+			if err := Iterate(channel.Name, channel.Head, nil, node.Cache, node.Network, func(h []byte, b *Block) error {
+				if b.Timestamp <= timestamp {
+					head = h
+					updated = b.Timestamp
+					return StopIterationError{}
+				}
+				return nil
+			}); err != nil {
+				switch err.(type) {
+				case StopIterationError:
+					// Do nothing
+				default:
+					return nil, err
+				}
+			}
+		}
 		if head == nil {
 			continue
-		}
-		updated := channel.Timestamp
-		if timestamp < updated {
-			// Head was updated after Validation Cycle started
-			// TODO iterate back through channel blocks until timestamp > block.Timestamp
 		}
 		entry, err := CreateValidationEntry(timestamp, node, channel.Name, updated, head)
 		if err != nil {
