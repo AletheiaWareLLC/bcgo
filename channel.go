@@ -82,7 +82,6 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 		}
 	}
 
-	c.update(block.Timestamp, head)
 	if err := cache.PutHead(c.Name, &Reference{
 		Timestamp:   block.Timestamp,
 		ChannelName: c.Name,
@@ -90,7 +89,11 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 	}); err != nil {
 		return err
 	}
-	return cache.PutBlock(head, block)
+	if err := cache.PutBlock(head, block); err != nil {
+		return err
+	}
+	c.update(block.Timestamp, head)
+	return nil
 }
 
 func (c *Channel) update(timestamp uint64, head []byte) {
