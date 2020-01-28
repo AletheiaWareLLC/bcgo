@@ -34,15 +34,17 @@ const (
 
 	PERIOD_HOURLY       = time.Hour
 	PERIOD_DAILY        = PERIOD_HOURLY * 24
-	PERIOD_YEARLY       = PERIOD_HOURLY * 8766   // (365.25 * 24)
-	PERIOD_DECENNIALLY  = PERIOD_HOURLY * 87660  // (10 * 365.25 * 24)
-	PERIOD_CENTENNIALLY = PERIOD_HOURLY * 876600 // (100 * 365.25 * 24)
+	PERIOD_WEEKLY       = PERIOD_HOURLY * 168    // (24 * 7)
+	PERIOD_YEARLY       = PERIOD_HOURLY * 8766   // (24 * 365.25)
+	PERIOD_DECENNIALLY  = PERIOD_HOURLY * 87660  // (24 * 365.25 * 10)
+	PERIOD_CENTENNIALLY = PERIOD_HOURLY * 876600 // (24 * 365.25 * 100)
 
 	THRESHOLD_PERIOD_HOUR    = THRESHOLD_F
 	THRESHOLD_PERIOD_DAY     = THRESHOLD_E
-	THRESHOLD_PERIOD_YEAR    = THRESHOLD_D
-	THRESHOLD_PERIOD_DECADE  = THRESHOLD_C
-	THRESHOLD_PERIOD_CENTURY = THRESHOLD_B
+	THRESHOLD_PERIOD_WEEK    = THRESHOLD_D
+	THRESHOLD_PERIOD_YEAR    = THRESHOLD_C
+	THRESHOLD_PERIOD_DECADE  = THRESHOLD_B
+	THRESHOLD_PERIOD_CENTURY = THRESHOLD_A
 )
 
 type PeriodicValidator struct {
@@ -67,6 +69,10 @@ func GetHourlyValidator(channel *Channel) *PeriodicValidator {
 
 func GetDailyValidator(channel *Channel) *PeriodicValidator {
 	return NewValidator(channel, PERIOD_DAILY)
+}
+
+func GetWeeklyValidator(channel *Channel) *PeriodicValidator {
+	return NewValidator(channel, PERIOD_WEEKLY)
 }
 
 func GetYearlyValidator(channel *Channel) *PeriodicValidator {

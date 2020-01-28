@@ -23,10 +23,10 @@ const (
 	THRESHOLD_G = 288 // (36 / 64) * 512 // Hash Space: 2 ^ 224 // Usage: General Purpose, Alias
 	THRESHOLD_F = 304 // (38 / 64) * 512 // Hash Space: 2 ^ 208 // Usage: Hour Validation
 	THRESHOLD_E = 320 // (40 / 64) * 512 // Hash Space: 2 ^ 192 // Usage: Day Validation
-	THRESHOLD_D = 336 // (42 / 64) * 512 // Hash Space: 2 ^ 176 // Usage: Year Validation
-	THRESHOLD_C = 352 // (44 / 64) * 512 // Hash Space: 2 ^ 160 // Usage: Decade Validation
-	THRESHOLD_B = 368 // (46 / 64) * 512 // Hash Space: 2 ^ 144 // Usage: Century Validation
-	THRESHOLD_A = 384 // (48 / 64) * 512 // Hash Space: 2 ^ 128 // Reserved
+	THRESHOLD_D = 336 // (42 / 64) * 512 // Hash Space: 2 ^ 176 // Usage: Week Validation
+	THRESHOLD_C = 352 // (44 / 64) * 512 // Hash Space: 2 ^ 160 // Usage: Year Validation
+	THRESHOLD_B = 368 // (46 / 64) * 512 // Hash Space: 2 ^ 144 // Usage: Decade Validation
+	THRESHOLD_A = 384 // (48 / 64) * 512 // Hash Space: 2 ^ 128 // Usage: Century Validation
 
 	MAX_BLOCK_SIZE_BYTES   = uint64(2 * 1024 * 1024 * 1024) // 2Gb
 	MAX_PAYLOAD_SIZE_BYTES = uint64(10 * 1024 * 1024)       // 10Mb
