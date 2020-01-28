@@ -109,6 +109,26 @@ func (n *Node) Write(timestamp uint64, channel *Channel, acl map[string]*rsa.Pub
 	return WriteRecord(channel.Name, n.Cache, record)
 }
 
+func (n *Node) MineProto(channel *Channel, threshold uint64, listener MiningListener, acl map[string]*rsa.PublicKey, references []*Reference, message proto.Message) error {
+	data, err := proto.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	if _, err := n.Write(Timestamp(), channel, acl, references, data); err != nil {
+		return err
+	}
+
+	if _, _, err := n.Mine(channel, threshold, listener); err != nil {
+		return err
+	}
+
+	if err := channel.Push(n.Cache, n.Network); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (n *Node) GetLastMinedTimestamp(channel *Channel) (uint64, error) {
 	var timestamp uint64
 	// Iterate through the chain to find the most recent block mined by this node
