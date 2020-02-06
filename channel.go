@@ -107,15 +107,24 @@ func (c *Channel) update(timestamp uint64, head []byte) {
 
 func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
 	return Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
-		for _, entry := range block.Entry {
-			if bytes.Equal(recordHash, entry.RecordHash) {
-				for _, access := range entry.Record.Access {
-					if alias == "" || alias == access.Alias {
-						decryptedKey, err := cryptogo.DecryptKey(access.EncryptionAlgorithm, access.SecretKey, key)
-						if err != nil {
-							return err
+		for _, entry := range b.Entry {
+			if recordHash == nil || bytes.Equal(recordHash, entry.RecordHash) {
+				if len(entry.Record.Access) == 0 {
+					// No Access Declared - Data is public and unencrypted
+					if err := callback(nil); err != nil {
+						return err
+					}
+				} else {
+					for _, access := range entry.Record.Access {
+						if alias == "" || alias == access.Alias {
+							decryptedKey, err := cryptogo.DecryptKey(access.EncryptionAlgorithm, access.SecretKey, key)
+							if err != nil {
+								return err
+							}
+							if err := callback(decryptedKey); err != nil {
+								return err
+							}
 						}
-						return callback(decryptedKey)
 					}
 				}
 			}
