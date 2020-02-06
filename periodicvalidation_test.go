@@ -46,7 +46,7 @@ func TestPeriodicValidator_FillChannelSet(t *testing.T) {
 	channel.Update(cache, nil, hash, block)
 	entries, err := bcgo.CreateValidationEntries(3456, node)
 	testinggo.AssertNoError(t, err)
-	b := bcgo.CreateValidationBlock(5678, channel.Name, node.Alias, nil, nil, entries)
+	b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 	h := makeHash(t, b)
 	testinggo.AssertNoError(t, validator.Channel.Update(cache, nil, h, b))
 	set := make(map[string]bool)
@@ -102,7 +102,7 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		channel.Update(cache, nil, hashA, blockA)
 		entries, err := bcgo.CreateValidationEntries(3456, node)
 		testinggo.AssertNoError(t, err)
-		b := bcgo.CreateValidationBlock(5678, channel.Name, node.Alias, nil, nil, entries)
+		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 		h := makeHash(t, b)
 		testinggo.AssertNoError(t, validator.Channel.Update(cache, nil, h, b))
 
@@ -132,7 +132,7 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		channel.Update(cache, nil, hashA, blockA)
 		entries, err := bcgo.CreateValidationEntries(3456, node)
 		testinggo.AssertNoError(t, err)
-		b := bcgo.CreateValidationBlock(5678, channel.Name, node.Alias, nil, nil, entries)
+		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 		h := makeHash(t, b)
 		testinggo.AssertNoError(t, validator.Channel.Update(cache, nil, h, b))
 		blockB := makeBlock(t, 3456)
@@ -146,14 +146,13 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 }
 
 func TestCreateValidationBlock(t *testing.T) {
-	channel := makeMockChannel(t)
 	block := makeBlock(t, 1234)
 	hash := makeHash(t, block)
-	actual := bcgo.CreateValidationBlock(5678, channel.Name, "TESTER", hash, block, nil)
+	actual := bcgo.CreateValidationBlock(5678, "PV", "TESTER", hash, block, nil)
 	if actual.Timestamp != 5678 {
 		t.Fatal("Incorrect timestamp")
 	}
-	if actual.ChannelName != "TEST" {
+	if actual.ChannelName != "PV" {
 		t.Fatal("Incorrect channel name")
 	}
 	if actual.Length != 2 {

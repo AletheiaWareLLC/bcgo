@@ -23,12 +23,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
+	"strings"
+	"unicode"
 )
 
 const (
 	ERROR_CHAIN_INVALID   = "Chain invalid: %s"
 	ERROR_CHAIN_TOO_SHORT = "Chain too short to replace current head: %d vs %d"
 	ERROR_HASH_INCORRECT  = "Hash doesn't match block hash"
+	ERROR_NAME_INCORRECT  = "Name doesn't match channel name: %s vs %s"
+	ERROR_NAME_INVALID    = "Name invalid: %s"
 )
 
 type Channel struct {
@@ -51,10 +55,27 @@ func (c *Channel) AddValidator(validator Validator) {
 	c.Validators = append(c.Validators, validator)
 }
 
+// Validates name matches channel name and all characters are in the set [a-zA-Z0-9.-_]
+func (c *Channel) ValidateName(name string) error {
+	if c.Name != name {
+		return errors.New(fmt.Sprintf(ERROR_NAME_INCORRECT, c.Name, name))
+	}
+	if strings.IndexFunc(name, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_'
+	}) != -1 {
+		return errors.New(fmt.Sprintf(ERROR_NAME_INVALID, name))
+	}
+	return nil
+}
+
 func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block) error {
 	if bytes.Equal(c.Head, head) {
 		// Channel up to date
 		return nil
+	}
+
+	if err := c.ValidateName(block.ChannelName); err != nil {
+		return err
 	}
 
 	// Check hash matches block hash
