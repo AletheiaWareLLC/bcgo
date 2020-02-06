@@ -237,7 +237,7 @@ func SetupLogging(directory string) (*os.File, error) {
 func GetPeers(directory string) ([]string, error) {
 	env, ok := os.LookupEnv("PEERS")
 	if ok {
-		return strings.Split(string(env), ","), nil
+		return SplitRemoveEmpty(env, ","), nil
 	} else {
 		filename := "test-peers"
 		if IsLive() {
@@ -253,8 +253,19 @@ func GetPeers(directory string) ([]string, error) {
 			return nil, err
 		}
 
-		return strings.Split(string(data), "\n"), nil
+		return SplitRemoveEmpty(string(data), "\n"), nil
 	}
+}
+
+func SplitRemoveEmpty(s, sep string) []string {
+	var result []string
+	for _, s := range strings.Split(s, sep) {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			result = append(result, s)
+		}
+	}
+	return result
 }
 
 func AddPeer(directory, peer string) error {
