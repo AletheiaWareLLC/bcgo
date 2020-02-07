@@ -19,7 +19,6 @@ package bcgo
 import (
 	"bytes"
 	"crypto/rsa"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
@@ -120,7 +119,6 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 func (c *Channel) update(timestamp uint64, head []byte) {
 	c.Timestamp = timestamp
 	c.Head = head
-	fmt.Printf("%s updated to %s %s\n", c.Name, TimestampToString(timestamp), base64.RawURLEncoding.EncodeToString(head))
 	for _, t := range c.Triggers {
 		t()
 	}

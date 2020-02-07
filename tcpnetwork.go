@@ -19,7 +19,6 @@ package bcgo
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -64,7 +63,6 @@ func (t *TcpNetwork) GetHead(channel string) (*Reference, error) {
 				}
 				continue
 			} else {
-				fmt.Printf("Fetched %s head from %s\n", channel, peer)
 				return reference, nil
 			}
 		}
@@ -95,11 +93,6 @@ func (t *TcpNetwork) GetBlock(reference *Reference) (*Block, error) {
 				}
 				continue
 			} else {
-				if reference.BlockHash != nil {
-					fmt.Printf("Fetched %s block %s from %s\n", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), peer)
-				} else {
-					fmt.Printf("Fetched %s record %s from %s\n", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.RecordHash), peer)
-				}
 				return block, nil
 			}
 		}
@@ -135,17 +128,13 @@ func (t *TcpNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 				remote := reference.BlockHash
 				if bytes.Equal(hash, remote) {
 					// Broadcast accepted
-					fmt.Printf("Broadcast %s block %s to %s\n", channel.Name, base64.RawURLEncoding.EncodeToString(hash), peer)
 					break
 				} else {
-					fmt.Println(peer, base64.RawURLEncoding.EncodeToString(remote))
-
 					// Broadcast rejected
 					referencedBlock, err := GetBlock(channel.Name, cache, t, remote)
 					if err != nil {
 						return err
 					}
-					fmt.Println(referencedBlock)
 
 					if referencedBlock.Length == block.Length {
 						// Option A: remote points to a different chain of the same length, next chain to get a block mined on top wins

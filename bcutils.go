@@ -356,8 +356,12 @@ func CreateRecords(creatorAlias string, creatorKey *rsa.PrivateKey, access map[s
 	for {
 		count, err := reader.Read(payload)
 		if err != nil {
-			log.Println(err)
-			break
+			if err == io.EOF {
+				// Ignore EOFs
+				break
+			} else {
+				return 0, err
+			}
 		}
 		size = size + count
 		key, record, err := CreateRecord(Timestamp(), creatorAlias, creatorKey, access, references, payload[:count])
@@ -451,7 +455,6 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 
 	// Calculate data received
 	count := uint64(n - s)
-	log.Println("n", n, "size", size, "s", s, "count", count)
 	if count >= size {
 		// All data in data[s:n]
 		if err = proto.Unmarshal(data[s:s+int(size)], destination); err != nil {
@@ -469,7 +472,6 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 			if err != nil {
 				if err == io.EOF {
 					// Ignore EOFs, keep trying to read until count == size
-					log.Println(err)
 				} else {
 					return err
 				}
