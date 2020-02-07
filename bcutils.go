@@ -217,6 +217,50 @@ func GetCertificateDirectory(directory string) (string, error) {
 	return certs, nil
 }
 
+func LoadConfig() error {
+	// Load Local Config
+	directory, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if err := ReadConfig(directory); err != nil {
+		return err
+	}
+	// Load Root Config
+	directory, err = GetRootDirectory()
+	if err != nil {
+		return err
+	}
+	if err := ReadConfig(directory); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ReadConfig(directory string) error {
+	filepath := path.Join(directory, ".bc")
+	if _, err := os.Stat(filepath); err == nil {
+		file, err := os.Open(filepath)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			paths := strings.SplitN(scanner.Text(), "=", 2)
+			if len(paths) > 1 {
+				key, value := paths[0], paths[1]
+				_, ok := os.LookupEnv(key)
+				if !ok {
+					os.Setenv(key, value)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func SetupLogging(directory string) (*os.File, error) {
 	store, ok := os.LookupEnv("LOG_DIRECTORY")
 	if !ok {
