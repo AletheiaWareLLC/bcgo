@@ -214,6 +214,29 @@ func Iterate(channel string, hash []byte, block *Block, cache Cache, network Net
 	return nil
 }
 
+func IterateChronologically(channel string, hash []byte, block *Block, cache Cache, network Network, callback func([]byte, *Block) error) error {
+	// Iterate through chain and populate a list of block hashes
+	var hashes [][]byte
+	if err := Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
+		hashes = append(hashes, h)
+		return nil
+	}); err != nil {
+		return err
+	}
+	// Iterate list of block hashes chronologically
+	for i := len(hashes) - 1; i >= 0; i-- {
+		hash := hashes[i]
+		block, err := GetBlock(channel, cache, network, hash)
+		if err != nil {
+			return err
+		}
+		if err := callback(hash, block); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (c *Channel) LoadCachedHead(cache Cache) error {
 	reference, err := cache.GetHead(c.Name)
 	if err != nil {
