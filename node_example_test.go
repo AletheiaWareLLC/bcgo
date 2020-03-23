@@ -88,11 +88,7 @@ func ExampleNode_Network() {
 	}
 
 	// Create network of peers
-	network := &bcgo.TcpNetwork{
-		Peers: []string{
-			"example.com",
-		},
-	}
+	network := bcgo.NewTCPNetwork("example.com")
 
 	channel := &bcgo.Channel{
 		Name: "Example",

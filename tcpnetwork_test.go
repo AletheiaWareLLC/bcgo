@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	//"errors"
 	"fmt"
 	"github.com/AletheiaWareLLC/bcgo"
 	"github.com/AletheiaWareLLC/testinggo"
@@ -30,6 +29,7 @@ import (
 )
 
 type MockServer struct {
+	ConnectListener   net.Listener
 	BlockListener     net.Listener
 	HeadListener      net.Listener
 	BroadcastListener net.Listener
@@ -37,19 +37,24 @@ type MockServer struct {
 
 func makeMockServer(t *testing.T) *MockServer {
 	t.Helper()
-	bl, err := net.Listen("tcp", "localhost:"+strconv.Itoa(bcgo.PORT_GET_BLOCK))
+	cl, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(bcgo.PORT_CONNECT)))
 	if err != nil {
 		t.Fatalf("Could not make listener: '%s'", err)
 	}
-	hl, err := net.Listen("tcp", "localhost:"+strconv.Itoa(bcgo.PORT_GET_HEAD))
+	bl, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(bcgo.PORT_GET_BLOCK)))
 	if err != nil {
 		t.Fatalf("Could not make listener: '%s'", err)
 	}
-	bcl, err := net.Listen("tcp", "localhost:"+strconv.Itoa(bcgo.PORT_BROADCAST))
+	hl, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(bcgo.PORT_GET_HEAD)))
+	if err != nil {
+		t.Fatalf("Could not make listener: '%s'", err)
+	}
+	bcl, err := net.Listen("tcp", net.JoinHostPort("localhost", strconv.Itoa(bcgo.PORT_BROADCAST)))
 	if err != nil {
 		t.Fatalf("Could not make listener: '%s'", err)
 	}
 	return &MockServer{
+		ConnectListener:   cl,
 		BlockListener:     bl,
 		HeadListener:      hl,
 		BroadcastListener: bcl,
@@ -58,9 +63,33 @@ func makeMockServer(t *testing.T) *MockServer {
 
 func unmakeMockServer(t *testing.T, server *MockServer) {
 	t.Helper()
+	server.ConnectListener.Close()
 	server.BlockListener.Close()
 	server.HeadListener.Close()
 	server.BroadcastListener.Close()
+}
+
+func makeConnectListener(t *testing.T, listener net.Listener, expected, reply []byte) {
+	t.Helper()
+	go func() {
+		connection, err := listener.Accept()
+		if err != nil {
+			t.Fatalf("Could not accept connection: '%s'", err)
+		}
+		defer connection.Close()
+		writer := bufio.NewWriter(connection)
+		reader := bufio.NewReader(connection)
+		buffer := make([]byte, 32)
+		n, err := reader.Read(buffer[:])
+		testinggo.AssertNoError(t, err)
+		request := buffer[:n]
+		if !bytes.Equal(request, expected) {
+			t.Fatalf("Unrecognized request: expected '%s', got '%s'", string(expected), string(request))
+		}
+		n, err = writer.Write(reply)
+		testinggo.AssertNoError(t, err)
+		testinggo.AssertNoError(t, writer.Flush())
+	}()
 }
 
 func makeBlockListener(t *testing.T, listener net.Listener, expected []byte, reply *bcgo.Block) {
@@ -159,26 +188,38 @@ func makeBroadcastListener(t *testing.T, listener net.Listener, replies map[stri
 	}()
 }
 
+func TestTcpNetworkConnect(t *testing.T) {
+	t.Run("NoServer", func(t *testing.T) {
+		network := bcgo.NewTCPNetwork()
+		err := network.Connect("FAKEPEER", []byte(""))
+		fmt.Println(err)
+		testinggo.AssertMatchesError(t, "dial tcp .*:22022: connect: connection refused", err)
+	})
+	t.Run("Success", func(t *testing.T) {
+		network := bcgo.NewTCPNetwork()
+
+		server := makeMockServer(t)
+		defer unmakeMockServer(t, server)
+
+		// Connect Listener
+		makeConnectListener(t, server.ConnectListener, []byte("hello"), []byte("hi"))
+
+		testinggo.AssertNoError(t, network.Connect("localhost", []byte("hello")))
+	})
+}
+
 func TestTcpNetworkBlock(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		_, err := bcgo.GetBlock(channel.Name, cache, network, []byte("FAKEHASH"))
 		testinggo.AssertError(t, "Could not get TEST block from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -199,22 +240,14 @@ func TestTcpNetworkHead(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		_, err := bcgo.GetHeadReference(channel.Name, cache, network)
 		testinggo.AssertError(t, "Could not get TEST head from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -240,11 +273,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		cache.PutBlock(hash, block)
 		channel.Head = hash
 
@@ -256,11 +285,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		cache.PutBlock(hash1, block1)
 		channel.Head = hash1
 
@@ -286,11 +311,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		block2 := makeLinkedBlock(t, 5678, hash1, block1)
 		hash2 := makeHash(t, block2)
 		block3 := makeLinkedBlock(t, 9012, hash2, block2)
@@ -319,11 +340,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := &bcgo.TcpNetwork{
-			Peers: []string{
-				"localhost",
-			},
-		}
+		network := bcgo.NewTCPNetwork("localhost")
 		cache.PutBlock(hash1, block1)
 		channel.Head = hash1
 
