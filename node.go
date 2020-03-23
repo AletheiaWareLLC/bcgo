@@ -161,6 +161,10 @@ func (n *Node) Mine(channel *Channel, threshold uint64, listener MiningListener)
 		return nil, nil, err
 	}
 
+	return n.MineEntries(channel, threshold, listener, entries)
+}
+
+func (n *Node) MineEntries(channel *Channel, threshold uint64, listener MiningListener, entries []*BlockEntry) ([]byte, *Block, error) {
 	if len(entries) == 0 {
 		return nil, nil, errors.New(fmt.Sprintf(ERROR_NO_ENTRIES_TO_MINE, channel.Name))
 	}
