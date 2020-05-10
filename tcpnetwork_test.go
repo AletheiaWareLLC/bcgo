@@ -191,9 +191,10 @@ func makeBroadcastListener(t *testing.T, listener net.Listener, replies map[stri
 func TestTcpNetworkConnect(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		network := bcgo.NewTCPNetwork()
+		network.DialTimeout = time.Second // Reduce timeout so test fails quicker
 		err := network.Connect("FAKEPEER", []byte(""))
 		fmt.Println(err)
-		testinggo.AssertMatchesError(t, "dial tcp .*:22022: connect: connection refused", err)
+		testinggo.AssertMatchesError(t, "dial tcp .*:22022: connect: (connection refused|operation timed out)", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		network := bcgo.NewTCPNetwork()
