@@ -74,7 +74,8 @@ func (t *TCPNetwork) AddPeer(peer string) {
 
 func (t *TCPNetwork) Connect(peer string, data []byte) error {
 	address := net.JoinHostPort(peer, strconv.Itoa(PORT_CONNECT))
-	connection, err := net.Dialer{Timeout: t.DialTimeout}.Dial("tcp", address)
+	dialer := &net.Dialer{Timeout: t.DialTimeout}
+	connection, err := dialer.Dial("tcp", address)
 	if err != nil {
 		return err
 	}
@@ -100,7 +101,8 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 	for _, peer := range t.peers() {
 		if len(peer) > 0 {
 			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
-			connection, err := net.Dialer{Timeout: t.DialTimeout}.Dial("tcp", address)
+			dialer := &net.Dialer{Timeout: t.DialTimeout}
+			connection, err := dialer.Dial("tcp", address)
 			if err != nil {
 				t.error(peer, err)
 				continue
@@ -132,7 +134,8 @@ func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 	for _, peer := range t.peers() {
 		if len(peer) > 0 {
 			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
-			connection, err := net.Dialer{Timeout: t.DialTimeout}.Dial("tcp", address)
+			dialer := &net.Dialer{Timeout: t.DialTimeout}
+			connection, err := dialer.Dial("tcp", address)
 			if err != nil {
 				t.error(peer, err)
 				continue
@@ -164,7 +167,8 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 		last = nil
 		if len(peer) > 0 {
 			address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
-			connection, err := net.Dialer{Timeout: t.DialTimeout}.Dial("tcp", address)
+			dialer := &net.Dialer{Timeout: t.DialTimeout}
+			connection, err := dialer.Dial("tcp", address)
 			if err != nil {
 				last = err
 				t.error(peer, err)
