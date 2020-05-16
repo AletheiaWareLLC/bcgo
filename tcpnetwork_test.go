@@ -195,7 +195,7 @@ func TestTcpNetworkConnect(t *testing.T) {
 		network.DialTimeout = time.Second // Reduce timeout so test fails quicker
 		err := network.Connect("FAKEPEER", []byte(""))
 		fmt.Println(err)
-		testinggo.AssertMatchesError(t, "dial tcp .*:22022: (connect: connection refused|connect: operation timed out|i/o timeout)", err)
+		testinggo.AssertMatchesError(t, "dial tcp(( .*:22022: (connect: connection refused|connect: operation timed out))|: i/o timeout)", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		network := bcgo.NewTCPNetwork()
