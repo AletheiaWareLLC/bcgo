@@ -92,7 +92,7 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 	if _, err := reader.Read(reply); err != nil {
 		return err
 	}
-	fmt.Println(reply)
+	fmt.Println(peer, reply)
 	t.AddPeer(peer)
 	return nil
 }
