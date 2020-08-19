@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
+	"log"
 	"sort"
 )
 
@@ -81,6 +82,27 @@ func (n *Node) GetChannel(name string) (*Channel, error) {
 		return nil, errors.New(fmt.Sprintf(ERROR_NO_SUCH_CHANNEL, name))
 	}
 	return c, nil
+}
+
+func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
+	c, ok := n.Channels[name]
+	if !ok {
+		c = opener()
+		if c != nil {
+			// Load Canvas Channel
+			if err := c.LoadCachedHead(n.Cache); err != nil {
+				log.Println(err)
+			}
+			if n.Network != nil {
+				// Pull Canvas Channel
+				if err := c.Pull(n.Cache, n.Network); err != nil {
+					log.Println(err)
+				}
+			}
+			n.AddChannel(c)
+		}
+	}
+	return c
 }
 
 func (n *Node) GetChannels() []*Channel {
