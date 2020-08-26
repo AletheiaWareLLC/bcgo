@@ -89,12 +89,12 @@ func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
 	if !ok {
 		c = opener()
 		if c != nil {
-			// Load Canvas Channel
+			// Load Channel
 			if err := c.LoadCachedHead(n.Cache); err != nil {
 				log.Println(err)
 			}
 			if n.Network != nil {
-				// Pull Canvas Channel
+				// Pull Channel
 				if err := c.Pull(n.Cache, n.Network); err != nil {
 					log.Println(err)
 				}
