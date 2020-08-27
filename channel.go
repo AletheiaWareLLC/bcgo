@@ -352,16 +352,15 @@ func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error
 
 func (c *Channel) Refresh(cache Cache, network Network) error {
 	// Load Channel
-	if err := c.LoadCachedHead(cache); err != nil {
-		return err
-	}
+	err := c.LoadCachedHead(cache)
+	// Pull from network regardless of above err
 	if network != nil {
 		// Pull Channel
 		if err := c.Pull(cache, network); err != nil {
 			return err
 		}
 	}
-	return nil
+	return err
 }
 
 func (c *Channel) Pull(cache Cache, network Network) error {
