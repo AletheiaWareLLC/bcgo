@@ -42,6 +42,12 @@ type Channel struct {
 	Validators []Validator
 }
 
+func NewChannel(name string) *Channel {
+	return &Channel{
+		Name: name,
+	}
+}
+
 func (c *Channel) String() string {
 	return c.Name
 }

@@ -26,11 +26,18 @@ import (
 
 func Channel_String() {
 	channel := &bcgo.Channel{
-		Name: "FooBar",
+		Name: "Foo",
 	}
 	fmt.Println(channel.String())
 	// Output:
-	// FooBar
+	// Foo
+}
+
+func Channel_Constructor_String() {
+	channel := bcgo.NewChannel("Bar")
+	fmt.Println(channel.String())
+	// Output:
+	// Bar
 }
 
 func Channel_GetHead_update() {

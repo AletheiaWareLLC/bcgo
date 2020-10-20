@@ -35,9 +35,7 @@ func AssertNilHead(t *testing.T, channel *bcgo.Channel) {
 
 func makeMockChannel(t *testing.T) *bcgo.Channel {
 	t.Helper()
-	return &bcgo.Channel{
-		Name: "TEST",
-	}
+	return bcgo.NewChannel("TEST")
 }
 
 func TestChannelHead(t *testing.T) {
