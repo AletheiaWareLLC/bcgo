@@ -48,7 +48,7 @@ type Node struct {
 	Channels map[string]*Channel
 }
 
-func GetNode(directory string, cache Cache, network Network) (*Node, error) {
+func NewNode(directory string, cache Cache, network Network) (*Node, error) {
 	// Get alias
 	alias, err := GetAlias()
 	if err != nil {
