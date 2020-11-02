@@ -43,7 +43,7 @@ type TCPNetwork struct {
 func NewTCPNetwork(peers ...string) *TCPNetwork {
 	t := &TCPNetwork{
 		Peers:       make(map[string]int),
-		DialTimeout: time.Minute,
+		DialTimeout: 5 * time.Second,
 	}
 	for _, p := range peers {
 		t.AddPeer(p)
