@@ -80,7 +80,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 			Miner:       node.Alias,
 		}
 		hash := makeHash(t, block)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 
 		channel := makeMockChannel(t)
 		channel.Head = hash
@@ -103,7 +103,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 			Miner:       node.Alias,
 		}
 		hash := makeHash(t, block)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 
 		block2 := &bcgo.Block{
 			Timestamp:   5678,
@@ -113,7 +113,7 @@ func TestNodeGetLastMinedTimestamp(t *testing.T) {
 			Miner:       "bob",
 		}
 		hash2 := makeHash(t, block2)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash2)] = block2
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash2)] = block2
 
 		channel := makeMockChannel(t)
 		channel.Head = hash2
@@ -159,7 +159,7 @@ func TestNodeMine(t *testing.T) {
 			Miner:       node.Alias,
 		}
 		hash1 := makeHash(t, block1)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
 
 		r := &bcgo.Record{
 			Payload: []byte("FooBar"),

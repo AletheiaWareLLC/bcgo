@@ -29,8 +29,8 @@ const (
 )
 
 type MemoryCache struct {
-	Block   map[string]*Block
-	Head    map[string]*Reference
+	Blocks  map[string]*Block
+	Heads   map[string]*Reference
 	Entries map[string][]*BlockEntry
 	Mapping map[string]*Block
 }
@@ -40,8 +40,8 @@ func NewMemoryCache(size int) *MemoryCache {
 	// TODO implement LRU
 	// TODO implement cache levels where
 	return &MemoryCache{
-		Block:   make(map[string]*Block, size),
-		Head:    make(map[string]*Reference, size),
+		Blocks:  make(map[string]*Block, size),
+		Heads:   make(map[string]*Reference, size),
 		Entries: make(map[string][]*BlockEntry, size),
 		Mapping: make(map[string]*Block, size),
 	}
@@ -49,7 +49,7 @@ func NewMemoryCache(size int) *MemoryCache {
 
 func (m *MemoryCache) GetBlock(hash []byte) (*Block, error) {
 	key := base64.RawURLEncoding.EncodeToString(hash)
-	block, ok := m.Block[key]
+	block, ok := m.Blocks[key]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(ERROR_BLOCK_NOT_FOUND, key))
 	}
@@ -76,7 +76,7 @@ func (m *MemoryCache) GetBlockContainingRecord(channel string, hash []byte) (*Bl
 }
 
 func (m *MemoryCache) GetHead(channel string) (*Reference, error) {
-	reference, ok := m.Head[channel]
+	reference, ok := m.Heads[channel]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf(ERROR_HEAD_NOT_FOUND, channel))
 	}
@@ -84,7 +84,7 @@ func (m *MemoryCache) GetHead(channel string) (*Reference, error) {
 }
 
 func (m *MemoryCache) PutBlock(hash []byte, block *Block) error {
-	m.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+	m.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 	for _, e := range block.Entry {
 		m.Mapping[base64.RawURLEncoding.EncodeToString(e.RecordHash)] = block
 	}
@@ -97,11 +97,11 @@ func (m *MemoryCache) PutBlockEntry(channel string, entry *BlockEntry) error {
 }
 
 func (m *MemoryCache) PutHead(channel string, reference *Reference) error {
-	m.Head[channel] = reference
+	m.Heads[channel] = reference
 	return nil
 }
 
 // func (m *MemoryCache) DeleteBlock(hash []byte) error {
-// 	delete(m.Block, base64.RawURLEncoding.EncodeToString(hash))
+// 	delete(m.Blocks, base64.RawURLEncoding.EncodeToString(hash))
 // 	return nil
 // }

@@ -30,7 +30,7 @@ func TestPoWValidation(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := bcgo.OpenPoWChannel("TEST", 1)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
 	})
 	t.Run("HashUnderThreshold", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestPoWValidation(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := bcgo.OpenPoWChannel("TEST", 1000)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_INVALID, fmt.Sprintf(bcgo.ERROR_HASH_TOO_WEAK, 255, 1000)), channel.Update(cache, nil, hash, block))
 	})
 }

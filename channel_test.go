@@ -51,7 +51,7 @@ func TestChannelHead(t *testing.T) {
 			ChannelName: "TEST",
 			BlockHash:   hash,
 		}
-		cache.Head["TEST"] = expected
+		cache.Heads["TEST"] = expected
 		head, err := bcgo.GetHeadReference("TEST", cache, nil)
 		testinggo.AssertNoError(t, err)
 		testinggo.AssertProtobufEqual(t, expected, head)
@@ -65,7 +65,7 @@ func TestChannelHead(t *testing.T) {
 			ChannelName: "TEST",
 			BlockHash:   hash,
 		}
-		network.Head = expected
+		network.Heads["TEST"] = expected
 		network.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		head, err := bcgo.GetHeadReference("TEST", cache, network)
 		testinggo.AssertNoError(t, err)
@@ -132,10 +132,10 @@ func TestChannelUpdate(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
-		if len(cache.Head) != 1 {
+		if len(cache.Heads) != 1 {
 			t.Fatalf("Updated head not put in cache")
 		}
-		testinggo.AssertHashEqual(t, hash, cache.Head["TEST"].BlockHash)
+		testinggo.AssertHashEqual(t, hash, cache.Heads["TEST"].BlockHash)
 
 		channel2 := makeMockChannel(t)
 		head, err := bcgo.GetHeadReference(channel2.Name, cache, nil)
@@ -148,10 +148,10 @@ func TestChannelUpdate(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
-		if len(cache.Block) != 1 {
+		if len(cache.Blocks) != 1 {
 			t.Fatalf("Block not put in cache")
 		}
-		testinggo.AssertProtobufEqual(t, block, cache.Block[base64.RawURLEncoding.EncodeToString(hash)])
+		testinggo.AssertProtobufEqual(t, block, cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)])
 	})
 }
 
@@ -184,7 +184,7 @@ func TestChannelPull(t *testing.T) {
 		channel := makeMockChannel(t)
 		channel.Head = hash
 		network := makeMockNetwork(t)
-		network.Head = &bcgo.Reference{
+		network.Heads["TEST"] = &bcgo.Reference{
 			ChannelName: "TEST",
 			BlockHash:   hash,
 		}
@@ -196,14 +196,14 @@ func TestChannelPull(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		channel := makeMockChannel(t)
 		channel.Head = hash
 
 		netBlock := makeBlock(t, 2345)
 		netHash := makeHash(t, netBlock)
 		network := makeMockNetwork(t)
-		network.Head = &bcgo.Reference{
+		network.Heads["TEST"] = &bcgo.Reference{
 			ChannelName: "TEST",
 			BlockHash:   netHash,
 		}
@@ -223,7 +223,7 @@ func TestChannelPull(t *testing.T) {
 		hash2 := makeHash(t, block2)
 
 		network := makeMockNetwork(t)
-		network.Head = &bcgo.Reference{
+		network.Heads["TEST"] = &bcgo.Reference{
 			ChannelName: "TEST",
 			BlockHash:   hash2,
 		}
@@ -240,15 +240,15 @@ func TestChannelPull(t *testing.T) {
 		block2 := makeLinkedBlock(t, 5678, hash1, block1)
 		hash2 := makeHash(t, block2)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash1)] = block1
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash2)] = block2
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash2)] = block2
 		channel := makeMockChannel(t)
 		channel.Head = hash2
 
 		expected := fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2)
 
 		network := makeMockNetwork(t)
-		network.Head = &bcgo.Reference{
+		network.Heads["TEST"] = &bcgo.Reference{
 			ChannelName: "TEST",
 			BlockHash:   hash1,
 		}
@@ -265,7 +265,7 @@ func TestChannelPush(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		channel.Head = hash
 
 		network := makeMockNetwork(t)
@@ -278,11 +278,11 @@ func TestChannelPush(t *testing.T) {
 		hash := makeHash(t, block)
 		channel := makeMockChannel(t)
 		cache := makeMockCache(t)
-		cache.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 		channel.Head = hash
 
 		network := makeMockNetwork(t)
-		network.Head = &bcgo.Reference{}
+		network.Heads["TEST"] = &bcgo.Reference{}
 		testinggo.AssertNoError(t, channel.Push(cache, network))
 		testinggo.AssertHashEqual(t, hash, network.BroadcastHash)
 		testinggo.AssertProtobufEqual(t, block, network.BroadcastBlock)

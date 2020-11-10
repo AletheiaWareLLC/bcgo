@@ -26,8 +26,8 @@ import (
 func makeMockCache(t *testing.T) *MockCache {
 	t.Helper()
 	return &MockCache{
-		Block:   make(map[string]*bcgo.Block),
-		Head:    make(map[string]*bcgo.Reference),
+		Blocks:  make(map[string]*bcgo.Block),
+		Heads:   make(map[string]*bcgo.Reference),
 		Entries: make(map[string][]*bcgo.BlockEntry),
 	}
 }
@@ -35,8 +35,8 @@ func makeMockCache(t *testing.T) *MockCache {
 type MockCache struct {
 	Channel            []string
 	Hash               [][]byte
-	Block              map[string]*bcgo.Block
-	Head               map[string]*bcgo.Reference
+	Blocks             map[string]*bcgo.Block
+	Heads              map[string]*bcgo.Reference
 	Entries            map[string][]*bcgo.BlockEntry
 	EntryTimes         []uint64
 	PutHeadError       error
@@ -48,11 +48,11 @@ type MockCache struct {
 
 func (m *MockCache) GetBlock(hash []byte) (*bcgo.Block, error) {
 	m.Hash = append(m.Hash, hash)
-	if len(m.Block) == 0 {
+	if len(m.Blocks) == 0 {
 		return nil, errors.New("No Blocks")
 	}
 	key := base64.RawURLEncoding.EncodeToString(hash)
-	result, ok := m.Block[key]
+	result, ok := m.Blocks[key]
 	if !ok {
 		return nil, errors.New("Cannot get block: " + key)
 	}
@@ -61,10 +61,10 @@ func (m *MockCache) GetBlock(hash []byte) (*bcgo.Block, error) {
 
 func (m *MockCache) GetHead(channel string) (*bcgo.Reference, error) {
 	m.Channel = append(m.Channel, channel)
-	if len(m.Head) == 0 {
-		return nil, errors.New("No Head")
+	if len(m.Heads) == 0 {
+		return nil, errors.New("No Heads")
 	}
-	result, ok := m.Head[channel]
+	result, ok := m.Heads[channel]
 	if !ok {
 		return nil, errors.New("Cannot get head: " + channel)
 	}
@@ -83,13 +83,13 @@ func (m *MockCache) GetBlockContainingRecord(channel string, hash []byte) (*bcgo
 
 func (m *MockCache) PutBlock(hash []byte, block *bcgo.Block) error {
 	m.Hash = append(m.Hash, hash)
-	m.Block[base64.RawURLEncoding.EncodeToString(hash)] = block
+	m.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
 	return m.PutBlockError
 }
 
 func (m *MockCache) PutHead(channel string, reference *bcgo.Reference) error {
 	m.Channel = append(m.Channel, channel)
-	m.Head[channel] = reference
+	m.Heads[channel] = reference
 	return m.PutHeadError
 }
 
@@ -100,6 +100,6 @@ func (m *MockCache) PutBlockEntry(channel string, entry *bcgo.BlockEntry) error 
 }
 
 // func (m *MockCache) DeleteBlock(hash []byte) error {
-// 	delete(m.Block, base64.RawURLEncoding.EncodeToString(hash))
+// 	delete(m.Blocks, base64.RawURLEncoding.EncodeToString(hash))
 // 	return m.DeleteBlockError
 // }

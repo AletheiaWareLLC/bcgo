@@ -26,6 +26,7 @@ func makeMockNetwork(t *testing.T) *MockNetwork {
 	t.Helper()
 	return &MockNetwork{
 		Blocks: make(map[string]*bcgo.Block),
+		Heads:  make(map[string]*bcgo.Reference),
 	}
 }
 
@@ -35,13 +36,13 @@ type MockNetwork struct {
 	RecordError    error
 	BroadcastError error
 	Blocks         map[string]*bcgo.Block
-	Head           *bcgo.Reference
+	Heads          map[string]*bcgo.Reference
 	BroadcastHash  []byte
 	BroadcastBlock *bcgo.Block
 }
 
 func (m *MockNetwork) GetHead(channel string) (*bcgo.Reference, error) {
-	return m.Head, m.HeadError
+	return m.Heads[channel], m.HeadError
 }
 
 func (m *MockNetwork) GetBlock(reference *bcgo.Reference) (*bcgo.Block, error) {
