@@ -89,7 +89,7 @@ func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
 	if !ok {
 		c = opener()
 		if c != nil {
-			if err := c.Refresh(n.Cache, n.Network); err != nil {
+			if err := c.LoadCachedHead(n.Cache); err != nil {
 				log.Println(err)
 			}
 			n.AddChannel(c)
