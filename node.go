@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
-	"log"
 	"sort"
 )
 
@@ -90,7 +89,7 @@ func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
 		c = opener()
 		if c != nil {
 			if err := c.LoadCachedHead(n.Cache); err != nil {
-				log.Println(err)
+				// Ignored
 			}
 			n.AddChannel(c)
 		}
