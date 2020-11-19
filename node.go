@@ -78,7 +78,7 @@ func (n *Node) AddChannel(channel *Channel) {
 func (n *Node) GetChannel(name string) (*Channel, error) {
 	c, ok := n.Channels[name]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(ERROR_NO_SUCH_CHANNEL, name))
+		return nil, fmt.Errorf(ERROR_NO_SUCH_CHANNEL, name)
 	}
 	return c, nil
 }
@@ -114,7 +114,7 @@ func (n *Node) GetChannels() []*Channel {
 func (n *Node) Write(timestamp uint64, channel *Channel, acl map[string]*rsa.PublicKey, references []*Reference, payload []byte) (*Reference, error) {
 	size := uint64(len(payload))
 	if size > MAX_PAYLOAD_SIZE_BYTES {
-		return nil, errors.New(fmt.Sprintf(ERROR_PAYLOAD_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES)))
+		return nil, fmt.Errorf(ERROR_PAYLOAD_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_PAYLOAD_SIZE_BYTES))
 	}
 	_, record, err := CreateRecord(timestamp, n.Alias, n.Key, acl, references, payload)
 	if err != nil {
@@ -180,7 +180,7 @@ func (n *Node) Mine(channel *Channel, threshold uint64, listener MiningListener)
 
 func (n *Node) MineEntries(channel *Channel, threshold uint64, listener MiningListener, entries []*BlockEntry) ([]byte, *Block, error) {
 	if len(entries) == 0 {
-		return nil, nil, errors.New(fmt.Sprintf(ERROR_NO_ENTRIES_TO_MINE, channel.Name))
+		return nil, nil, fmt.Errorf(ERROR_NO_ENTRIES_TO_MINE, channel.Name)
 	}
 
 	// TODO check record signature of each entry
@@ -209,7 +209,7 @@ func (n *Node) MineEntries(channel *Channel, threshold uint64, listener MiningLi
 func (n *Node) MineBlock(channel *Channel, threshold uint64, listener MiningListener, block *Block) ([]byte, *Block, error) {
 	size := uint64(proto.Size(block))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, errors.New(fmt.Sprintf(ERROR_BLOCK_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_BLOCK_SIZE_BYTES)))
+		return nil, nil, fmt.Errorf(ERROR_BLOCK_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_BLOCK_SIZE_BYTES))
 	}
 
 	if listener != nil {
