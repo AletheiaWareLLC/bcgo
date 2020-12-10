@@ -175,6 +175,11 @@ func (n *Node) Mine(channel *Channel, threshold uint64, listener MiningListener)
 		return nil, nil, err
 	}
 
+	// Sort by timestamp
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Record.Timestamp < entries[j].Record.Timestamp
+	})
+
 	return n.MineEntries(channel, threshold, listener, entries)
 }
 
