@@ -335,7 +335,9 @@ func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey
 	}
 	record := entry.Record
 	switch record.EncryptionAlgorithm {
-	case cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING:
+	case cryptogo.EncryptionAlgorithm_AES_128_GCM_NOPADDING:
+		fallthrough
+	case cryptogo.EncryptionAlgorithm_AES_256_GCM_NOPADDING:
 		decryptedPayload, err := cryptogo.DecryptAESGCM(decryptedKey, record.Payload)
 		if err != nil {
 			return err
@@ -392,7 +394,7 @@ func CreateRecord(timestamp uint64, creatorAlias string, creatorKey *rsa.Private
 	var key []byte
 	var err error
 	if len(access) > 0 {
-		key, err = cryptogo.GenerateRandomKey()
+		key, err = cryptogo.GenerateRandomKey(cryptogo.AES_256_KEY_SIZE_BYTES)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -414,7 +416,7 @@ func CreateRecord(timestamp uint64, creatorAlias string, creatorKey *rsa.Private
 				EncryptionAlgorithm: cryptogo.EncryptionAlgorithm_RSA_ECB_OAEPPADDING,
 			})
 		}
-		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING
+		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_AES_256_GCM_NOPADDING
 	} else {
 		record.EncryptionAlgorithm = cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION
 	}

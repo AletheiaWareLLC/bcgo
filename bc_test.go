@@ -57,7 +57,7 @@ func makeRecord(t *testing.T) *bcgo.Record {
 		},
 		Payload:              []byte("DATA"),
 		CompressionAlgorithm: cryptogo.CompressionAlgorithm_UNKNOWN_COMPRESSION,
-		EncryptionAlgorithm:  cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING,
+		EncryptionAlgorithm:  cryptogo.EncryptionAlgorithm_AES_128_GCM_NOPADDING,
 		Signature:            []byte("SIGN"),
 		SignatureAlgorithm:   cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS,
 		Reference: []*bcgo.Reference{

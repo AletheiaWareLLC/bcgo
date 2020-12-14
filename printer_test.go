@@ -78,7 +78,7 @@ Entry: 0
 		KeyEncryptionAlgorithm: RSA_ECB_OAEPPADDING
 	Payload: REFUQQ
 	CompressionAlgorithm: UNKNOWN_COMPRESSION
-	EncryptionAlgorithm: AES_GCM_NOPADDING
+	EncryptionAlgorithm: AES_128_GCM_NOPADDING
 	Signature: U0lHTg
 	SignatureAlgorithm: SHA512WITHRSA_PSS
 	References: 1
@@ -126,7 +126,7 @@ Access: 0
 	KeyEncryptionAlgorithm: RSA_ECB_OAEPPADDING
 Payload: REFUQQ
 CompressionAlgorithm: UNKNOWN_COMPRESSION
-EncryptionAlgorithm: AES_GCM_NOPADDING
+EncryptionAlgorithm: AES_128_GCM_NOPADDING
 Signature: U0lHTg
 SignatureAlgorithm: SHA512WITHRSA_PSS
 References: 1

@@ -211,7 +211,7 @@ func TestCreateRecord(t *testing.T) {
 		if record.Access[0].Alias != "TESTER" {
 			t.Fatalf("Incorrect record access alias")
 		}
-		if record.EncryptionAlgorithm != cryptogo.EncryptionAlgorithm_AES_GCM_NOPADDING {
+		if record.EncryptionAlgorithm != cryptogo.EncryptionAlgorithm_AES_256_GCM_NOPADDING {
 			t.Fatalf("Incorrect record encryption algorithm")
 		}
 	})
