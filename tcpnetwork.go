@@ -76,6 +76,19 @@ func (t *TCPNetwork) AddPeer(peer string) {
 	t.Peers[peer] = 0
 }
 
+func (t *TCPNetwork) SetPeers(peers ...string) {
+	ps := make(map[string]int, len(peers))
+	// Copy errors into new map
+	for _, p := range peers {
+		e, ok := t.Peers[p]
+		if !ok {
+			e = 0
+		}
+		ps[p] = e
+	}
+	t.Peers = ps
+}
+
 func (t *TCPNetwork) Connect(peer string, data []byte) error {
 	address := net.JoinHostPort(peer, strconv.Itoa(PORT_CONNECT))
 	dialer := &net.Dialer{Timeout: t.DialTimeout}
