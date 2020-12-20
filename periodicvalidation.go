@@ -55,7 +55,7 @@ type PeriodicValidator struct {
 	Ticker  *time.Ticker
 }
 
-func NewValidator(channel *Channel, period time.Duration) *PeriodicValidator {
+func NewPeriodicValidator(channel *Channel, period time.Duration) *PeriodicValidator {
 	return &PeriodicValidator{
 		Channel: channel,
 		Period:  period,
@@ -63,27 +63,27 @@ func NewValidator(channel *Channel, period time.Duration) *PeriodicValidator {
 }
 
 func GetHourlyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_HOURLY)
+	return NewPeriodicValidator(channel, PERIOD_HOURLY)
 }
 
 func GetDailyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_DAILY)
+	return NewPeriodicValidator(channel, PERIOD_DAILY)
 }
 
 func GetWeeklyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_WEEKLY)
+	return NewPeriodicValidator(channel, PERIOD_WEEKLY)
 }
 
 func GetYearlyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_YEARLY)
+	return NewPeriodicValidator(channel, PERIOD_YEARLY)
 }
 
 func GetDecenniallyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_DECENNIALLY)
+	return NewPeriodicValidator(channel, PERIOD_DECENNIALLY)
 }
 
 func GetCentenniallyValidator(channel *Channel) *PeriodicValidator {
-	return NewValidator(channel, PERIOD_CENTENNIALLY)
+	return NewPeriodicValidator(channel, PERIOD_CENTENNIALLY)
 }
 
 // Fills the given set with the names of all channels validated in this chain
