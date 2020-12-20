@@ -41,6 +41,9 @@ import (
 const (
 	BC_HOST      = "bc.aletheiaware.com"
 	BC_HOST_TEST = "test-bc.aletheiaware.com"
+
+	BETA_FLAG = "BETA"
+	LIVE_FLAG = "LIVE"
 )
 
 func Ones(data []byte) uint64 {
@@ -136,11 +139,11 @@ func MoneyToString(currency string, amount int64) string {
 }
 
 func IsLive() bool {
-	return GetBooleanFlag("LIVE")
+	return GetBooleanFlag(LIVE_FLAG)
 }
 
 func IsBeta() bool {
-	return GetBooleanFlag("BETA")
+	return GetBooleanFlag(BETA_FLAG)
 }
 
 func GetBooleanFlag(name string) bool {
@@ -434,6 +437,12 @@ func CreateRecord(timestamp uint64, creatorAlias string, creatorKey *rsa.Private
 	record.Payload = payload
 	record.Signature = signature
 	record.SignatureAlgorithm = cryptogo.SignatureAlgorithm_SHA512WITHRSA_PSS
+
+	if l, ok := os.LookupEnv(LIVE_FLAG); ok {
+		record.Meta = map[string]string{
+			LIVE_FLAG: l,
+		}
+	}
 
 	return key, record, nil
 }
