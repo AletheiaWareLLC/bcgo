@@ -347,7 +347,7 @@ func DecryptRecord(entry *BlockEntry, access *Record_Access, key *rsa.PrivateKey
 	case cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		return callback(entry, nil, record.Payload)
 	default:
-		return errors.New(fmt.Sprintf(cryptogo.ERROR_UNSUPPORTED_ENCRYPTION, record.EncryptionAlgorithm.String()))
+		return fmt.Errorf(cryptogo.ERROR_UNSUPPORTED_ENCRYPTION, record.EncryptionAlgorithm.String())
 	}
 }
 
@@ -452,7 +452,7 @@ func ReadDelimitedProtobuf(reader *bufio.Reader, destination proto.Message) erro
 		return errors.New("Could not read size")
 	}
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return errors.New(fmt.Sprintf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES))
+		return fmt.Errorf("Protobuf too large: %d max: %d", size, MAX_BLOCK_SIZE_BYTES)
 	}
 
 	// Calculate data received

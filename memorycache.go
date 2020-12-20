@@ -18,7 +18,6 @@ package bcgo
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 )
 
@@ -51,7 +50,7 @@ func (m *MemoryCache) GetBlock(hash []byte) (*Block, error) {
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	block, ok := m.Blocks[key]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(ERROR_BLOCK_NOT_FOUND, key))
+		return nil, fmt.Errorf(ERROR_BLOCK_NOT_FOUND, key)
 	}
 	return block, nil
 }
@@ -70,7 +69,7 @@ func (m *MemoryCache) GetBlockContainingRecord(channel string, hash []byte) (*Bl
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	block, ok := m.Mapping[key]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, key))
+		return nil, fmt.Errorf(ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, key)
 	}
 	return block, nil
 }
@@ -78,7 +77,7 @@ func (m *MemoryCache) GetBlockContainingRecord(channel string, hash []byte) (*Bl
 func (m *MemoryCache) GetHead(channel string) (*Reference, error) {
 	reference, ok := m.Heads[channel]
 	if !ok {
-		return nil, errors.New(fmt.Sprintf(ERROR_HEAD_NOT_FOUND, channel))
+		return nil, fmt.Errorf(ERROR_HEAD_NOT_FOUND, channel)
 	}
 	return reference, nil
 }

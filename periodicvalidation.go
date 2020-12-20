@@ -18,7 +18,6 @@ package bcgo
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
@@ -140,7 +139,7 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 		}
 	}
 	if len(missing) > 0 {
-		return errors.New(fmt.Sprintf(ERROR_MISSING_VALIDATED_BLOCK, strings.Join(missing, ",")))
+		return fmt.Errorf(ERROR_MISSING_VALIDATED_BLOCK, strings.Join(missing, ","))
 	}
 	return nil
 }

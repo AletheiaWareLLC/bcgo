@@ -17,7 +17,6 @@
 package bcgo
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -45,7 +44,7 @@ func (p *PoWValidator) Validate(channel *Channel, cache Cache, network Network, 
 		// Check hash ones pass threshold
 		ones := Ones(h)
 		if ones < p.Threshold {
-			return errors.New(fmt.Sprintf(ERROR_HASH_TOO_WEAK, ones, p.Threshold))
+			return fmt.Errorf(ERROR_HASH_TOO_WEAK, ones, p.Threshold)
 		}
 		return nil
 	})

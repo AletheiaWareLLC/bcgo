@@ -63,12 +63,12 @@ func (c *Channel) AddValidator(validator Validator) {
 // Validates name matches channel name and all characters are in the set [a-zA-Z0-9.-_]
 func (c *Channel) ValidateName(name string) error {
 	if c.Name != name {
-		return errors.New(fmt.Sprintf(ERROR_NAME_INCORRECT, c.Name, name))
+		return fmt.Errorf(ERROR_NAME_INCORRECT, c.Name, name)
 	}
 	if strings.IndexFunc(name, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_'
 	}) != -1 {
-		return errors.New(fmt.Sprintf(ERROR_NAME_INVALID, name))
+		return fmt.Errorf(ERROR_NAME_INVALID, name)
 	}
 	return nil
 }
@@ -98,13 +98,13 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 		}
 		// Check block chain is longer than current head
 		if b != nil && b.Length >= block.Length {
-			return errors.New(fmt.Sprintf(ERROR_CHAIN_TOO_SHORT, block.Length, b.Length))
+			return fmt.Errorf(ERROR_CHAIN_TOO_SHORT, block.Length, b.Length)
 		}
 	}
 
 	for _, v := range c.Validators {
 		if err := v.Validate(c, cache, network, head, block); err != nil {
-			return errors.New(fmt.Sprintf(ERROR_CHAIN_INVALID, err.Error()))
+			return fmt.Errorf(ERROR_CHAIN_INVALID, err.Error())
 		}
 	}
 
