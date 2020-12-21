@@ -189,10 +189,17 @@ func makeBroadcastListener(t *testing.T, listener net.Listener, replies map[stri
 	}()
 }
 
-func TestTcpNetworkConnect(t *testing.T) {
+func makeTCPNetwork(t *testing.T, peers ...string) *bcgo.TCPNetwork {
+	t.Helper()
+	network := bcgo.NewTCPNetwork(peers...)
+	network.DialTimeout = time.Second // Reduce timeout so test fails quicker
+	network.GetTimeout = time.Second  // Reduce timeout so test fails quicker
+	return network
+}
+
+func TestTCPNetworkConnect(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
-		network := bcgo.NewTCPNetwork()
-		network.DialTimeout = time.Second // Reduce timeout so test fails quicker
+		network := makeTCPNetwork(t)
 		err := network.Connect("FAKEPEER", []byte(""))
 		if err == nil {
 			t.Fatalf("Expected error")
@@ -211,18 +218,18 @@ func TestTcpNetworkConnect(t *testing.T) {
 	})
 }
 
-func TestTcpNetworkBlock(t *testing.T) {
+func TestTCPNetworkBlock(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		_, err := bcgo.GetBlock(channel.Name, cache, network, []byte("FAKEHASH"))
 		testinggo.AssertError(t, "Could not get TEST block from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -239,18 +246,18 @@ func TestTcpNetworkBlock(t *testing.T) {
 	})
 }
 
-func TestTcpNetworkHead(t *testing.T) {
+func TestTCPNetworkHead(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		_, err := bcgo.GetHeadReference(channel.Name, cache, network)
 		testinggo.AssertError(t, "Could not get TEST head from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 
 		server := makeMockServer(t)
 		defer unmakeMockServer(t, server)
@@ -269,14 +276,14 @@ func TestTcpNetworkHead(t *testing.T) {
 	})
 }
 
-func TestTcpNetworkBroadcast(t *testing.T) {
+func TestTCPNetworkBroadcast(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		cache.PutBlock(hash, block)
 		channel.Head = hash
 
@@ -288,7 +295,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		cache.PutBlock(hash1, block1)
 		channel.Head = hash1
 
@@ -314,7 +321,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		block2 := makeLinkedBlock(t, 5678, hash1, block1)
 		hash2 := makeHash(t, block2)
 		block3 := makeLinkedBlock(t, 9012, hash2, block2)
@@ -343,7 +350,7 @@ func TestTcpNetworkBroadcast(t *testing.T) {
 
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
-		network := bcgo.NewTCPNetwork("localhost")
+		network := makeTCPNetwork(t, "localhost")
 		cache.PutBlock(hash1, block1)
 		channel.Head = hash1
 

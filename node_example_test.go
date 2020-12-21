@@ -24,6 +24,7 @@ import (
 	"github.com/AletheiaWareLLC/bcgo"
 	"io/ioutil"
 	"log"
+	"time"
 )
 
 func ExampleNode() {
@@ -89,6 +90,8 @@ func ExampleNode_Network() {
 
 	// Create network of peers
 	network := bcgo.NewTCPNetwork("example.com")
+	network.DialTimeout = time.Second
+	network.GetTimeout = time.Second
 
 	channel := &bcgo.Channel{
 		Name: "Example",

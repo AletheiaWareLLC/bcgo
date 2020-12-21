@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	TIMEOUT        = 3 * time.Second
+	TIMEOUT        = 3 * time.Minute
 	PORT_CONNECT   = 22022
 	PORT_GET_BLOCK = 22222
 	PORT_GET_HEAD  = 22322
