@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/AletheiaWareLLC/cryptogo"
+	"reflect"
 	"strings"
 	"unicode"
 )
@@ -264,7 +265,7 @@ func (c *Channel) LoadHead(cache Cache, network Network) error {
 func GetHeadReference(channel string, cache Cache, network Network) (*Reference, error) {
 	reference, err := cache.GetHead(channel)
 	if err != nil {
-		if network == nil {
+		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
 			fmt.Println(err)
@@ -282,7 +283,7 @@ func GetHeadReference(channel string, cache Cache, network Network) (*Reference,
 func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
 	b, err := cache.GetBlock(hash)
 	if err != nil {
-		if network == nil {
+		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
 			fmt.Println(err)
@@ -309,7 +310,7 @@ func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block
 func GetBlockContainingRecord(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
 	b, err := cache.GetBlockContainingRecord(channel, hash)
 	if err != nil {
-		if network == nil {
+		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
 			fmt.Println(err)
@@ -360,17 +361,15 @@ func (c *Channel) Refresh(cache Cache, network Network) error {
 	// Load Channel
 	err := c.LoadCachedHead(cache)
 	// Pull from network regardless of above err
-	if network != nil {
-		// Pull Channel
-		if err := c.Pull(cache, network); err != nil {
-			return err
-		}
+	if network == nil || reflect.ValueOf(network).IsNil() {
+		return err
 	}
-	return err
+	// Pull Channel
+	return c.Pull(cache, network)
 }
 
 func (c *Channel) Pull(cache Cache, network Network) error {
-	if network == nil {
+	if network == nil || reflect.ValueOf(network).IsNil() {
 		return nil
 	}
 	reference, err := network.GetHead(c.Name)
