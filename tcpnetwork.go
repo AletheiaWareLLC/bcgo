@@ -109,99 +109,80 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 	if _, err := reader.Read(reply); err != nil {
 		return fmt.Errorf("%s: %v", peer, err)
 	}
-	fmt.Println(peer, reply)
+	fmt.Println(peer, string(reply))
 	t.AddPeer(peer)
 	return nil
 }
 
 func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
-	result := make(chan *Reference)
 	for _, peer := range t.peers() {
 		if len(peer) > 0 {
-			go func() {
-				address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
-				dialer := &net.Dialer{Timeout: t.DialTimeout}
-				connection, err := dialer.Dial("tcp", address)
-				if err != nil {
+			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
+			dialer := &net.Dialer{Timeout: t.DialTimeout}
+			connection, err := dialer.Dial("tcp", address)
+			if err != nil {
+				t.error(peer, err)
+				continue
+			}
+			defer connection.Close()
+			writer := bufio.NewWriter(connection)
+			if err := WriteDelimitedProtobuf(writer, &Reference{
+				ChannelName: channel,
+			}); err != nil {
+				t.error(peer, err)
+				continue
+			}
+			reader := bufio.NewReader(connection)
+			reference := &Reference{}
+			if err := ReadDelimitedProtobuf(reader, reference); err != nil {
+				if err != io.EOF {
 					t.error(peer, err)
-					return
 				}
-				defer connection.Close()
-				writer := bufio.NewWriter(connection)
-				if err := WriteDelimitedProtobuf(writer, &Reference{
-					ChannelName: channel,
-				}); err != nil {
-					t.error(peer, err)
-					return
-				}
-				reader := bufio.NewReader(connection)
-				reference := &Reference{}
-				if err := ReadDelimitedProtobuf(reader, reference); err != nil {
-					if err != io.EOF {
-						t.error(peer, err)
-					}
-					return
-				} else {
-					fmt.Println(peer, reference)
-					result <- reference
-				}
-			}()
+				continue
+			} else {
+				fmt.Println(peer, reference)
+				return reference, nil
+			}
 		}
 	}
-	select {
-	case reference := <-result:
-		// TODO this is currently first result wins, but if multiple results consider choosing the best
-		return reference, nil
-	case <-time.After(t.GetTimeout):
-		return nil, errors.New("Could not get " + channel + " head from peers")
-	}
+	return nil, errors.New("Could not get " + channel + " head from peers")
 }
 
 func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
-	result := make(chan *Block)
 	for _, peer := range t.peers() {
 		if len(peer) > 0 {
-			go func() {
-				address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
-				dialer := &net.Dialer{Timeout: t.DialTimeout}
-				connection, err := dialer.Dial("tcp", address)
-				if err != nil {
+			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
+			dialer := &net.Dialer{Timeout: t.DialTimeout}
+			connection, err := dialer.Dial("tcp", address)
+			if err != nil {
+				t.error(peer, err)
+				continue
+			}
+			defer connection.Close()
+			writer := bufio.NewWriter(connection)
+			if err := WriteDelimitedProtobuf(writer, reference); err != nil {
+				t.error(peer, err)
+				continue
+			}
+			reader := bufio.NewReader(connection)
+			block := &Block{}
+			if err := ReadDelimitedProtobuf(reader, block); err != nil {
+				if err != io.EOF {
 					t.error(peer, err)
-					return
 				}
-				defer connection.Close()
-				writer := bufio.NewWriter(connection)
-				if err := WriteDelimitedProtobuf(writer, reference); err != nil {
-					t.error(peer, err)
-					return
-				}
-				reader := bufio.NewReader(connection)
-				block := &Block{}
-				if err := ReadDelimitedProtobuf(reader, block); err != nil {
-					if err != io.EOF {
-						t.error(peer, err)
-					}
-					return
-				} else {
-					fmt.Println(peer, block)
-					result <- block
-				}
-			}()
+				continue
+			} else {
+				fmt.Println(peer, block)
+				return block, nil
+			}
 		}
 	}
-	select {
-	case block := <-result:
-		// TODO this is currently first result wins, but if multiple results consider choosing the best
-		return block, nil
-	case <-time.After(t.GetTimeout):
-		return nil, errors.New("Could not get " + reference.ChannelName + " block from peers")
-	}
+	return nil, errors.New("Could not get " + reference.ChannelName + " block from peers")
 }
 
 func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block *Block) error {
 	var last error
 	for _, peer := range t.peers() {
-		// TODO execute in goroutine, sent result to channel, select channel and timeout
 		last = nil
 		if len(peer) > 0 {
 			address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
