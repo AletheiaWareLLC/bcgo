@@ -107,12 +107,6 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("%s: %v", peer, err)
 	}
-	reply := make([]byte, len(data))
-	reader := bufio.NewReader(connection)
-	if _, err := reader.Read(reply); err != nil {
-		return fmt.Errorf("%s: %v", peer, err)
-	}
-	fmt.Println(peer, string(reply))
 	t.AddPeer(peer)
 	return nil
 }
