@@ -19,6 +19,7 @@ package bcgo
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -113,6 +114,7 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 
 func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 	for _, peer := range t.peers() {
+		fmt.Println("Requesting", channel, "head from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
@@ -145,6 +147,7 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 
 func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 	for _, peer := range t.peers() {
+		fmt.Println("Requesting", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), base64.RawURLEncoding.EncodeToString(reference.RecordHash), "from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
@@ -177,6 +180,7 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 	var last error
 	for _, peer := range t.peers() {
 		last = nil
+		fmt.Println("Broadcasting", channel, base64.RawURLEncoding.EncodeToString(hash), "to", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
