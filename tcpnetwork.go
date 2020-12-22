@@ -58,6 +58,9 @@ func NewTCPNetwork(peers ...string) *TCPNetwork {
 func (t *TCPNetwork) peers() []string {
 	var peers []string
 	for p := range t.Peers {
+		if len(p) == 0 {
+			continue
+		}
 		peers = append(peers, p)
 	}
 	sort.Slice(peers, func(i, j int) bool {
@@ -116,33 +119,31 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 
 func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 	for _, peer := range t.peers() {
-		if len(peer) > 0 {
-			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
-			dialer := &net.Dialer{Timeout: t.DialTimeout}
-			connection, err := dialer.Dial("tcp", address)
-			if err != nil {
+		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
+		dialer := &net.Dialer{Timeout: t.DialTimeout}
+		connection, err := dialer.Dial("tcp", address)
+		if err != nil {
+			t.error(peer, err)
+			continue
+		}
+		defer connection.Close()
+		writer := bufio.NewWriter(connection)
+		if err := WriteDelimitedProtobuf(writer, &Reference{
+			ChannelName: channel,
+		}); err != nil {
+			t.error(peer, err)
+			continue
+		}
+		reader := bufio.NewReader(connection)
+		reference := &Reference{}
+		if err := ReadDelimitedProtobuf(reader, reference); err != nil {
+			if err != io.EOF {
 				t.error(peer, err)
-				continue
 			}
-			defer connection.Close()
-			writer := bufio.NewWriter(connection)
-			if err := WriteDelimitedProtobuf(writer, &Reference{
-				ChannelName: channel,
-			}); err != nil {
-				t.error(peer, err)
-				continue
-			}
-			reader := bufio.NewReader(connection)
-			reference := &Reference{}
-			if err := ReadDelimitedProtobuf(reader, reference); err != nil {
-				if err != io.EOF {
-					t.error(peer, err)
-				}
-				continue
-			} else {
-				fmt.Println(peer, reference)
-				return reference, nil
-			}
+			continue
+		} else {
+			fmt.Println(peer, reference)
+			return reference, nil
 		}
 	}
 	return nil, errors.New("Could not get " + channel + " head from peers")
@@ -150,31 +151,29 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 
 func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 	for _, peer := range t.peers() {
-		if len(peer) > 0 {
-			address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
-			dialer := &net.Dialer{Timeout: t.DialTimeout}
-			connection, err := dialer.Dial("tcp", address)
-			if err != nil {
+		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
+		dialer := &net.Dialer{Timeout: t.DialTimeout}
+		connection, err := dialer.Dial("tcp", address)
+		if err != nil {
+			t.error(peer, err)
+			continue
+		}
+		defer connection.Close()
+		writer := bufio.NewWriter(connection)
+		if err := WriteDelimitedProtobuf(writer, reference); err != nil {
+			t.error(peer, err)
+			continue
+		}
+		reader := bufio.NewReader(connection)
+		block := &Block{}
+		if err := ReadDelimitedProtobuf(reader, block); err != nil {
+			if err != io.EOF {
 				t.error(peer, err)
-				continue
 			}
-			defer connection.Close()
-			writer := bufio.NewWriter(connection)
-			if err := WriteDelimitedProtobuf(writer, reference); err != nil {
-				t.error(peer, err)
-				continue
-			}
-			reader := bufio.NewReader(connection)
-			block := &Block{}
-			if err := ReadDelimitedProtobuf(reader, block); err != nil {
-				if err != io.EOF {
-					t.error(peer, err)
-				}
-				continue
-			} else {
-				fmt.Println(peer, block)
-				return block, nil
-			}
+			continue
+		} else {
+			fmt.Println(peer, block)
+			return block, nil
 		}
 	}
 	return nil, errors.New("Could not get " + reference.ChannelName + " block from peers")
@@ -184,59 +183,57 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 	var last error
 	for _, peer := range t.peers() {
 		last = nil
-		if len(peer) > 0 {
-			address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
-			dialer := &net.Dialer{Timeout: t.DialTimeout}
-			connection, err := dialer.Dial("tcp", address)
-			if err != nil {
-				last = err
-				t.error(peer, err)
-				continue
+		address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
+		dialer := &net.Dialer{Timeout: t.DialTimeout}
+		connection, err := dialer.Dial("tcp", address)
+		if err != nil {
+			last = err
+			t.error(peer, err)
+			continue
+		}
+		defer connection.Close()
+		writer := bufio.NewWriter(connection)
+		reader := bufio.NewReader(connection)
+
+		for {
+			if err := WriteDelimitedProtobuf(writer, block); err != nil {
+				return err
 			}
-			defer connection.Close()
-			writer := bufio.NewWriter(connection)
-			reader := bufio.NewReader(connection)
-
-			for {
-				if err := WriteDelimitedProtobuf(writer, block); err != nil {
-					return err
-				}
-				reference := &Reference{}
-				if err := ReadDelimitedProtobuf(reader, reference); err != nil {
-					if err == io.EOF {
-						// Ignore
-						break
-					}
-					return err
-				}
-
-				remote := reference.BlockHash
-				if bytes.Equal(hash, remote) {
-					// Broadcast accepted
+			reference := &Reference{}
+			if err := ReadDelimitedProtobuf(reader, reference); err != nil {
+				if err == io.EOF {
+					// Ignore
 					break
-				} else {
-					// Broadcast rejected
-					referencedBlock, err := GetBlock(channel.Name, cache, t, remote)
-					if err != nil {
-						return err
-					}
+				}
+				return err
+			}
 
-					if referencedBlock.Length == block.Length {
-						// Option A: remote points to a different chain of the same length, next chain to get a block mined on top wins
-						break
-					} else if referencedBlock.Length > block.Length {
-						// Option B: remote points to a longer chain
-						go func() {
-							if err := channel.Pull(cache, t); err != nil {
-								fmt.Println(err)
-							}
-						}()
-						return errors.New(ERROR_CHANNEL_OUT_OF_DATE)
-						// TODO re-mine all dropped records into new blocks on top of new head
-					} else {
-						// Option C: remote points to a shorter chain, and cannot update because the chain cannot be verified or the host is missing some blocks
-						block = referencedBlock
-					}
+			remote := reference.BlockHash
+			if bytes.Equal(hash, remote) {
+				// Broadcast accepted
+				break
+			} else {
+				// Broadcast rejected
+				referencedBlock, err := GetBlock(channel.Name, cache, t, remote)
+				if err != nil {
+					return err
+				}
+
+				if referencedBlock.Length == block.Length {
+					// Option A: remote points to a different chain of the same length, next chain to get a block mined on top wins
+					break
+				} else if referencedBlock.Length > block.Length {
+					// Option B: remote points to a longer chain
+					go func() {
+						if err := channel.Pull(cache, t); err != nil {
+							fmt.Println(err)
+						}
+					}()
+					return errors.New(ERROR_CHANNEL_OUT_OF_DATE)
+					// TODO re-mine all dropped records into new blocks on top of new head
+				} else {
+					// Option C: remote points to a shorter chain, and cannot update because the chain cannot be verified or the host is missing some blocks
+					block = referencedBlock
 				}
 			}
 		}
