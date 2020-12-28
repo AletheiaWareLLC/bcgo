@@ -252,7 +252,7 @@ func TestTCPNetworkHead(t *testing.T) {
 		cache := bcgo.NewMemoryCache(10)
 		network := makeTCPNetwork(t, "localhost")
 		_, err := bcgo.GetHeadReference(channel.Name, cache, network)
-		testinggo.AssertError(t, "Could not get TEST head from peers", err)
+		testinggo.AssertError(t, "Could not get TEST from peers", err)
 	})
 	t.Run("Success", func(t *testing.T) {
 		channel := makeMockChannel(t)
