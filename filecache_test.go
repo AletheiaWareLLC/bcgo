@@ -245,7 +245,11 @@ func TestMeasureStorageUsage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error, got " + err.Error())
 		}
-		aliceExpected := uint64(proto.Size(aliceRecord))
+		aliceEntry := &bcgo.BlockEntry{
+			RecordHash: aliceRecordHash,
+			Record:     aliceRecord,
+		}
+		aliceExpected := uint64(proto.Size(aliceEntry))
 		bobRecord := &bcgo.Record{
 			Creator: "Bob",
 		}
@@ -253,18 +257,16 @@ func TestMeasureStorageUsage(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Expected no error, got " + err.Error())
 		}
-		bobExpected := uint64(proto.Size(bobRecord))
+		bobEntry := &bcgo.BlockEntry{
+			RecordHash: bobRecordHash,
+			Record:     bobRecord,
+		}
+		bobExpected := uint64(proto.Size(bobEntry))
 		block := &bcgo.Block{
 			ChannelName: "Test",
 			Entry: []*bcgo.BlockEntry{
-				&bcgo.BlockEntry{
-					RecordHash: aliceRecordHash,
-					Record:     aliceRecord,
-				},
-				&bcgo.BlockEntry{
-					RecordHash: bobRecordHash,
-					Record:     bobRecord,
-				},
+				aliceEntry,
+				bobEntry,
 			},
 		}
 		blockHash, err := cryptogo.HashProtobuf(block)

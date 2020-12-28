@@ -178,13 +178,13 @@ func (f *FileCache) MeasureStorageUsage(prefix string) (map[string]uint64, error
 		}
 		if strings.HasPrefix(block.ChannelName, prefix) {
 			for _, entry := range block.Entry {
-				record := entry.Record
-				u, ok := usage[record.Creator]
+				creator := entry.Record.Creator
+				u, ok := usage[creator]
 				if !ok {
 					u = 0
 				}
-				u += uint64(proto.Size(record))
-				usage[record.Creator] = u
+				u += uint64(proto.Size(entry))
+				usage[creator] = u
 			}
 		}
 	}
