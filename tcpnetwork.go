@@ -30,6 +30,7 @@ import (
 )
 
 const (
+	MAX_TCP_ERRORS = 10
 	TIMEOUT        = 3 * time.Minute
 	PORT_CONNECT   = 22022
 	PORT_GET_BLOCK = 22222
@@ -53,27 +54,6 @@ func NewTCPNetwork(peers ...string) *TCPNetwork {
 		t.AddPeer(p)
 	}
 	return t
-}
-
-// Returns a slice of peers sorted by ascending error rate
-func (t *TCPNetwork) peers() []string {
-	var peers []string
-	for p := range t.Peers {
-		if len(p) == 0 {
-			continue
-		}
-		peers = append(peers, p)
-	}
-	sort.Slice(peers, func(i, j int) bool {
-		return t.Peers[peers[i]] > t.Peers[peers[j]]
-	})
-	// TODO return peers[:1+len(peers)/2] // return first half of peers ie least erroneous
-	return peers
-}
-
-func (t *TCPNetwork) error(peer string, err error) {
-	fmt.Println(peer, "error", err)
-	t.Peers[peer] = t.Peers[peer] + 1
 }
 
 func (t *TCPNetwork) AddPeer(peer string) {
@@ -241,4 +221,29 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 		}
 	}
 	return last
+}
+
+// Returns a slice of peers sorted by ascending error rate
+func (t *TCPNetwork) peers() []string {
+	var peers []string
+	for p := range t.Peers {
+		if len(p) == 0 {
+			continue
+		}
+		peers = append(peers, p)
+	}
+	sort.Slice(peers, func(i, j int) bool {
+		return t.Peers[peers[i]] < t.Peers[peers[j]]
+	})
+	return peers[:1+len(peers)/2] // return first half of peers ie least erroneous
+}
+
+func (t *TCPNetwork) error(peer string, err error) {
+	fmt.Println("Error:", peer, err)
+	count := t.Peers[peer] + 1
+	t.Peers[peer] = count
+	if count > MAX_TCP_ERRORS {
+		fmt.Println(peer, "Exceeded MAX_TCP_ERRORS")
+		delete(t.Peers, peer)
+	}
 }

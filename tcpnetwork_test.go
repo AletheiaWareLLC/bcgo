@@ -197,7 +197,7 @@ func makeTCPNetwork(t *testing.T, peers ...string) *bcgo.TCPNetwork {
 	return network
 }
 
-func TestTCPNetworkConnect(t *testing.T) {
+func TestTCPNetwork_Connect(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		network := makeTCPNetwork(t)
 		err := network.Connect("FAKEPEER", []byte(""))
@@ -218,7 +218,7 @@ func TestTCPNetworkConnect(t *testing.T) {
 	})
 }
 
-func TestTCPNetworkBlock(t *testing.T) {
+func TestTCPNetwork_Block(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
@@ -246,7 +246,7 @@ func TestTCPNetworkBlock(t *testing.T) {
 	})
 }
 
-func TestTCPNetworkHead(t *testing.T) {
+func TestTCPNetwork_Head(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		channel := makeMockChannel(t)
 		cache := bcgo.NewMemoryCache(10)
@@ -276,7 +276,7 @@ func TestTCPNetworkHead(t *testing.T) {
 	})
 }
 
-func TestTCPNetworkBroadcast(t *testing.T) {
+func TestTCPNetwork_Broadcast(t *testing.T) {
 	t.Run("NoServer", func(t *testing.T) {
 		block := makeBlock(t, 1234)
 		hash := makeHash(t, block)
