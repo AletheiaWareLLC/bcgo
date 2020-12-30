@@ -17,9 +17,9 @@
 package bcgo
 
 import (
+	"aletheiaware.com/cryptogo"
 	"encoding/base64"
 	"fmt"
-	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"log"
 	"strings"

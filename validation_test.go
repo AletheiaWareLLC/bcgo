@@ -17,7 +17,7 @@
 package bcgo_test
 
 import (
-	"github.com/AletheiaWareLLC/bcgo"
+	"aletheiaware.com/bcgo"
 )
 
 type MockValidator struct {

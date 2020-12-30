@@ -17,13 +17,13 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/cryptogo"
+	"aletheiaware.com/testinggo"
 	"bufio"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
-	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/cryptogo"
-	"github.com/AletheiaWareLLC/testinggo"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"os"

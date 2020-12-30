@@ -17,13 +17,13 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/cryptogo"
+	"aletheiaware.com/testinggo"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
-	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/cryptogo"
-	"github.com/AletheiaWareLLC/testinggo"
 	"testing"
 )
 

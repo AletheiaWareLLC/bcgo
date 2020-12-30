@@ -17,12 +17,12 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/testinggo"
 	"bufio"
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/testinggo"
 	"net"
 	"strconv"
 	"testing"

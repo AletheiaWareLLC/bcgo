@@ -17,8 +17,8 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
 	"encoding/base64"
-	"github.com/AletheiaWareLLC/bcgo"
 	"testing"
 )
 

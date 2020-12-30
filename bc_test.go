@@ -17,8 +17,8 @@
 package bcgo_test
 
 import (
-	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/cryptogo"
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"testing"
 )

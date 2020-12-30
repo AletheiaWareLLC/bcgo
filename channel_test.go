@@ -17,12 +17,12 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/testinggo"
 	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/AletheiaWareLLC/bcgo"
-	"github.com/AletheiaWareLLC/testinggo"
 	"testing"
 )
 

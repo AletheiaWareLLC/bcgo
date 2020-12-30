@@ -17,11 +17,11 @@
 package bcgo_test
 
 import (
+	"aletheiaware.com/bcgo"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
-	"github.com/AletheiaWareLLC/bcgo"
 	"io/ioutil"
 	"log"
 	"time"

@@ -18,13 +18,13 @@
 package bcgo
 
 import (
+	"aletheiaware.com/cryptogo"
 	"bufio"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha512"
 	"errors"
 	"fmt"
-	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"io"
 	"io/ioutil"

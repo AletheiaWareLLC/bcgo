@@ -17,11 +17,11 @@
 package bcgo
 
 import (
+	"aletheiaware.com/cryptogo"
 	"bytes"
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"github.com/AletheiaWareLLC/cryptogo"
 	"reflect"
 	"strings"
 	"unicode"

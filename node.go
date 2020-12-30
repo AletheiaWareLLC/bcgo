@@ -17,10 +17,10 @@
 package bcgo
 
 import (
+	"aletheiaware.com/cryptogo"
 	"crypto/rsa"
 	"errors"
 	"fmt"
-	"github.com/AletheiaWareLLC/cryptogo"
 	"github.com/golang/protobuf/proto"
 	"sort"
 )
