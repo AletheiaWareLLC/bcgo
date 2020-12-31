@@ -232,6 +232,9 @@ func (t *TCPNetwork) peers() []string {
 		}
 		peers = append(peers, p)
 	}
+	if len(peers) == 0 {
+		return peers
+	}
 	sort.Slice(peers, func(i, j int) bool {
 		return t.Peers[peers[i]] < t.Peers[peers[j]]
 	})

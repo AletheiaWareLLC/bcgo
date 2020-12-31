@@ -24,8 +24,13 @@ import (
 
 func TestTCPNetwork_Peers(t *testing.T) {
 	network := NewTCPNetwork()
-	network.AddPeer("peer0")
 	peers := network.peers()
+	if len(peers) != 0 {
+		t.Errorf("Incorrect Peers: Expected none, got '%v'", peers)
+	}
+
+	network.AddPeer("peer0")
+	peers = network.peers()
 	if len(peers) != 1 || peers[0] != "peer0" {
 		t.Errorf("Incorrect Peers: Expected '[peer0]', got '%v'", peers)
 	}
