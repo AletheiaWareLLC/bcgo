@@ -232,7 +232,10 @@ func TestChannelPull(t *testing.T) {
 		testinggo.AssertNoError(t, channel.Pull(cache, network))
 		// Channel should update
 		testinggo.AssertHashEqual(t, hash2, channel.Head)
-		// TODO check block2 is in cache
+		if _, ok := cache.Blocks[hash2]; !ok {
+			t.Errorf("Expected cache to hold block2")
+		}
+
 	})
 	t.Run("LocalLongerThanRemote", func(t *testing.T) {
 		block1 := makeBlock(t, 1234)
