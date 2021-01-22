@@ -232,7 +232,7 @@ func TestChannelPull(t *testing.T) {
 		testinggo.AssertNoError(t, channel.Pull(cache, network))
 		// Channel should update
 		testinggo.AssertHashEqual(t, hash2, channel.Head)
-		if _, ok := cache.Blocks[hash2]; !ok {
+		if _, ok := cache.Blocks[base64.RawURLEncoding.EncodeToString(hash2)]; !ok {
 			t.Errorf("Expected cache to hold block2")
 		}
 
