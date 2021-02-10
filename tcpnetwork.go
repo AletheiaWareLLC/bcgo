@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sort"
 	"strconv"
@@ -94,7 +95,7 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 
 func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 	for _, peer := range t.peers() {
-		fmt.Println("Requesting", channel, "from", peer)
+		log.Println("Requesting", channel, "from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
@@ -118,7 +119,7 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 			}
 			continue
 		} else {
-			fmt.Println("Received", TimestampToString(reference.Timestamp), reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
+			log.Println("Received", TimestampToString(reference.Timestamp), reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), "from", peer)
 			return reference, nil
 		}
 	}
@@ -127,7 +128,7 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 
 func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 	for _, peer := range t.peers() {
-		fmt.Println("Requesting", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), base64.RawURLEncoding.EncodeToString(reference.RecordHash), "from", peer)
+		log.Println("Requesting", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), base64.RawURLEncoding.EncodeToString(reference.RecordHash), "from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
@@ -149,7 +150,7 @@ func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 			}
 			continue
 		} else {
-			fmt.Println("Received", TimestampToString(block.Timestamp), block.ChannelName, "from", peer)
+			log.Println("Received", TimestampToString(block.Timestamp), block.ChannelName, "from", peer)
 			return block, nil
 		}
 	}
@@ -160,7 +161,7 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 	var last error
 	for _, peer := range t.peers() {
 		last = nil
-		fmt.Println("Broadcasting", channel, base64.RawURLEncoding.EncodeToString(hash), "to", peer)
+		log.Println("Broadcasting", channel, base64.RawURLEncoding.EncodeToString(hash), "to", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
 		connection, err := dialer.Dial("tcp", address)
@@ -189,7 +190,7 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 			remote := reference.BlockHash
 			if bytes.Equal(hash, remote) {
 				// Broadcast accepted
-				fmt.Println("Broadcast to", peer, "succeeded")
+				log.Println("Broadcast to", peer, "succeeded")
 				break
 			} else {
 				// Broadcast rejected
@@ -200,21 +201,21 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 
 				if referencedBlock.Length == block.Length {
 					// Option A: remote points to a different chain of the same length, next chain to get a block mined on top wins
-					fmt.Println("Broadcast to", peer, "failed: Option A")
+					log.Println("Broadcast to", peer, "failed: Option A")
 					break
 				} else if referencedBlock.Length > block.Length {
 					// Option B: remote points to a longer chain
-					fmt.Println("Broadcast to", peer, "failed: Option B")
+					log.Println("Broadcast to", peer, "failed: Option B")
 					go func() {
 						if err := channel.Pull(cache, t); err != nil {
-							fmt.Println(err)
+							log.Println(err)
 						}
 					}()
 					return errors.New(ERROR_CHANNEL_OUT_OF_DATE)
 					// TODO re-mine all dropped records into new blocks on top of new head
 				} else {
 					// Option C: remote points to a shorter chain, and cannot update because the chain cannot be verified or the host is missing some blocks
-					fmt.Println("Broadcast to", peer, "failed: Option C")
+					log.Println("Broadcast to", peer, "failed: Option C")
 					block = referencedBlock
 				}
 			}
@@ -242,11 +243,11 @@ func (t *TCPNetwork) peers() []string {
 }
 
 func (t *TCPNetwork) error(peer string, err error) {
-	fmt.Println("Error:", peer, err)
+	log.Println("Error:", peer, err)
 	count := t.Peers[peer] + 1
 	t.Peers[peer] = count
 	if count > MAX_TCP_ERRORS {
-		fmt.Println(peer, "Exceeded MAX_TCP_ERRORS")
+		log.Println(peer, "Exceeded MAX_TCP_ERRORS")
 		delete(t.Peers, peer)
 	}
 }

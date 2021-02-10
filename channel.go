@@ -22,6 +22,7 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"unicode"
@@ -268,7 +269,7 @@ func GetHeadReference(channel string, cache Cache, network Network) (*Reference,
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	} else {
 		return reference, nil
@@ -286,7 +287,7 @@ func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	} else {
 		return b, nil
@@ -313,7 +314,7 @@ func GetBlockContainingRecord(channel string, cache Cache, network Network, hash
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
 		} else {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	} else {
 		return b, nil
