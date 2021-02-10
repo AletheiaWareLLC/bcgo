@@ -187,7 +187,6 @@ func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningL
 				}
 				if err := p.Update(node, threshold, listener, timestamp); err != nil {
 					log.Println(err)
-					p.Stop()
 					break
 				}
 				if err := p.Channel.Push(node.Cache, node.Network); err != nil {
