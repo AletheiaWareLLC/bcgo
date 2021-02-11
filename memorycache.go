@@ -35,9 +35,9 @@ type MemoryCache struct {
 }
 
 func NewMemoryCache(size int) *MemoryCache {
-	// TODO size for blocks, heads, entries
+	// TODO separate sizes for blocks, heads, entries, mappings
 	// TODO implement LRU
-	// TODO implement cache levels where
+	// TODO implement cache levels where a memory cache sits above a file cache
 	return &MemoryCache{
 		Blocks:  make(map[string]*Block, size),
 		Heads:   make(map[string]*Reference, size),
