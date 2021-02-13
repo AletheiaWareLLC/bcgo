@@ -25,6 +25,7 @@ import (
 	"log"
 	"reflect"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -42,6 +43,7 @@ type Channel struct {
 	Timestamp  uint64
 	Triggers   []func()
 	Validators []Validator
+	lock       sync.Mutex
 }
 
 func NewChannel(name string) *Channel {
@@ -76,6 +78,8 @@ func (c *Channel) ValidateName(name string) error {
 }
 
 func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if bytes.Equal(c.Head, head) {
 		// Channel up to date
 		return nil
