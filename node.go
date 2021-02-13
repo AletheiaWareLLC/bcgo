@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"sort"
+	"sync"
 )
 
 const (
@@ -45,6 +46,7 @@ type Node struct {
 	Cache    Cache
 	Network  Network
 	Channels map[string]*Channel
+	lock     sync.Mutex
 }
 
 func NewNode(directory string, cache Cache, network Network) (*Node, error) {
@@ -72,10 +74,14 @@ func NewNode(directory string, cache Cache, network Network) (*Node, error) {
 }
 
 func (n *Node) AddChannel(channel *Channel) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	n.Channels[channel.Name] = channel
 }
 
 func (n *Node) GetChannel(name string) (*Channel, error) {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	c, ok := n.Channels[name]
 	if !ok {
 		return nil, fmt.Errorf(ERROR_NO_SUCH_CHANNEL, name)
@@ -84,6 +90,8 @@ func (n *Node) GetChannel(name string) (*Channel, error) {
 }
 
 func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	c, ok := n.Channels[name]
 	if !ok {
 		c = opener()
@@ -98,6 +106,8 @@ func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
 }
 
 func (n *Node) GetChannels() []*Channel {
+	n.lock.Lock()
+	defer n.lock.Unlock()
 	var keys []string
 	for k := range n.Channels {
 		keys = append(keys, k)
@@ -222,6 +232,7 @@ func (n *Node) MineBlock(channel *Channel, threshold uint64, listener MiningList
 	}
 
 	var max uint64
+	// TODO only mine as long as channel head has not changed.
 	for nonce := uint64(1); nonce > 0; nonce++ {
 		block.Nonce = nonce
 		hash, err := cryptogo.HashProtobuf(block)
