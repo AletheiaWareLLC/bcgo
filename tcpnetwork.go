@@ -27,6 +27,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -40,38 +41,48 @@ const (
 )
 
 type TCPNetwork struct {
-	Peers       map[string]int
 	DialTimeout time.Duration
 	GetTimeout  time.Duration
+	lock        sync.RWMutex
+	peers       map[string]int
 }
 
 func NewTCPNetwork(peers ...string) *TCPNetwork {
 	t := &TCPNetwork{
-		Peers:       make(map[string]int),
 		DialTimeout: TIMEOUT,
 		GetTimeout:  TIMEOUT,
+		peers:       make(map[string]int),
 	}
+	t.lock.Lock()
 	for _, p := range peers {
-		t.AddPeer(p)
+		t.peers[p] = 0
 	}
+	t.lock.Unlock()
 	return t
 }
 
 func (t *TCPNetwork) AddPeer(peer string) {
-	t.Peers[peer] = 0
+	t.lock.Lock()
+	defer t.lock.Unlock()
+	t.ensurePeerMap()
+	t.peers[peer] = 0
 }
 
 func (t *TCPNetwork) SetPeers(peers ...string) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	ps := make(map[string]int, len(peers))
-	// Copy errors into new map
-	for _, p := range peers {
-		e, ok := t.Peers[p]
-		if !ok {
-			e = 0
+	if t.peers != nil {
+		// Copy errors into new map
+		for _, p := range peers {
+			e, ok := t.peers[p]
+			if !ok {
+				e = 0
+			}
+			ps[p] = e
 		}
-		ps[p] = e
 	}
-	t.Peers = ps
+	t.peers = ps
 }
 
 func (t *TCPNetwork) Connect(peer string, data []byte) error {
@@ -94,7 +105,7 @@ func (t *TCPNetwork) Connect(peer string, data []byte) error {
 }
 
 func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
-	for _, peer := range t.peers() {
+	for _, peer := range t.bestPeers() {
 		log.Println("Requesting", channel, "from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_HEAD))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
@@ -127,7 +138,7 @@ func (t *TCPNetwork) GetHead(channel string) (*Reference, error) {
 }
 
 func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
-	for _, peer := range t.peers() {
+	for _, peer := range t.bestPeers() {
 		log.Println("Requesting", reference.ChannelName, base64.RawURLEncoding.EncodeToString(reference.BlockHash), base64.RawURLEncoding.EncodeToString(reference.RecordHash), "from", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_GET_BLOCK))
 		dialer := &net.Dialer{Timeout: t.DialTimeout}
@@ -159,7 +170,7 @@ func (t *TCPNetwork) GetBlock(reference *Reference) (*Block, error) {
 
 func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block *Block) error {
 	var last error
-	for _, peer := range t.peers() {
+	for _, peer := range t.bestPeers() {
 		last = nil
 		log.Println("Broadcasting", channel, base64.RawURLEncoding.EncodeToString(hash), "to", peer)
 		address := net.JoinHostPort(peer, strconv.Itoa(PORT_BROADCAST))
@@ -224,30 +235,85 @@ func (t *TCPNetwork) Broadcast(channel *Channel, cache Cache, hash []byte, block
 	return last
 }
 
-// Returns a slice of peers sorted by ascending error rate
-func (t *TCPNetwork) peers() []string {
-	var peers []string
-	for p := range t.Peers {
-		if len(p) == 0 {
-			continue
-		}
-		peers = append(peers, p)
+// Returns the peer associated with the given address
+func (t *TCPNetwork) PeerForAddress(address string) string {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		log.Println(address, err)
+		return ""
 	}
+	hIP := net.ParseIP(host)
+	t.lock.Lock()
+	var peers []string
+	if t.peers != nil {
+		for p := range t.peers {
+			peers = append(peers, p)
+		}
+	}
+	t.lock.Unlock()
+	for _, p := range peers {
+		if p == host {
+			return p
+		}
+		if hIP != nil {
+			// DNS lookup peer to get IP addresses
+			ips, err := net.LookupIP(p)
+			if err != nil {
+				continue
+			}
+			for _, ip := range ips {
+				if ip.Equal(hIP) {
+					return p
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (t *TCPNetwork) Peers() (peers []string) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+	if t.peers != nil {
+		for p := range t.peers {
+			if p == "" {
+				continue
+			}
+			peers = append(peers, p)
+		}
+	}
+	return
+}
+
+// Returns a slice of peers sorted by ascending error rate
+func (t *TCPNetwork) bestPeers() []string {
+	peers := t.Peers()
 	if len(peers) == 0 {
 		return peers
 	}
-	sort.Slice(peers, func(i, j int) bool {
-		return t.Peers[peers[i]] < t.Peers[peers[j]]
-	})
+	if t.peers != nil {
+		sort.Slice(peers, func(i, j int) bool {
+			return t.peers[peers[i]] < t.peers[peers[j]]
+		})
+	}
 	return peers[:1+len(peers)/2] // return first half of peers ie least erroneous
 }
 
+func (t *TCPNetwork) ensurePeerMap() {
+	if t.peers == nil {
+		t.peers = make(map[string]int)
+	}
+}
+
 func (t *TCPNetwork) error(peer string, err error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 	log.Println("Error:", peer, err)
-	count := t.Peers[peer] + 1
-	t.Peers[peer] = count
+	t.ensurePeerMap()
+	count := t.peers[peer] + 1
+	t.peers[peer] = count
 	if count > MAX_TCP_ERRORS {
 		log.Println(peer, "Exceeded MAX_TCP_ERRORS")
-		delete(t.Peers, peer)
+		delete(t.peers, peer)
 	}
 }
