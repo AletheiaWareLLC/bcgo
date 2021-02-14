@@ -91,8 +91,8 @@ func (n *Node) GetChannel(name string) (*Channel, error) {
 
 func (n *Node) GetOrOpenChannel(name string, opener func() *Channel) *Channel {
 	n.lock.Lock()
-	defer n.lock.Unlock()
 	c, ok := n.Channels[name]
+	n.lock.Unlock()
 	if !ok {
 		c = opener()
 		if c != nil {
