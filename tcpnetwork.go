@@ -53,11 +53,9 @@ func NewTCPNetwork(peers ...string) *TCPNetwork {
 		GetTimeout:  TIMEOUT,
 		peers:       make(map[string]int),
 	}
-	t.lock.Lock()
 	for _, p := range peers {
 		t.peers[p] = 0
 	}
-	t.lock.Unlock()
 	return t
 }
 
@@ -243,14 +241,7 @@ func (t *TCPNetwork) PeerForAddress(address string) string {
 		return ""
 	}
 	hIP := net.ParseIP(host)
-	t.lock.Lock()
-	var peers []string
-	if t.peers != nil {
-		for p := range t.peers {
-			peers = append(peers, p)
-		}
-	}
-	t.lock.Unlock()
+	peers := t.Peers()
 	for _, p := range peers {
 		if p == host {
 			return p
@@ -292,9 +283,11 @@ func (t *TCPNetwork) bestPeers() []string {
 		return peers
 	}
 	if t.peers != nil {
+		t.lock.RLock()
 		sort.Slice(peers, func(i, j int) bool {
 			return t.peers[peers[i]] < t.peers[peers[j]]
 		})
+		t.lock.RUnlock()
 	}
 	return peers[:1+len(peers)/2] // return first half of peers ie least erroneous
 }
