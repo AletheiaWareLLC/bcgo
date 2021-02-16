@@ -141,7 +141,7 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		blockC := makeLinkedBlock(t, 5678, hashB, blockB)
 		hashC := makeHash(t, blockC)
 		err = channel.Update(cache, nil, hashC, blockC)
-		testinggo.AssertError(t, fmt.Sprintf("Chain invalid: Missing Validated Block %s", base64.RawURLEncoding.EncodeToString(hashA)), err)
+		testinggo.AssertError(t, fmt.Sprintf("Chain invalid: PV Missing Validated Block TEST %s", base64.RawURLEncoding.EncodeToString(hashA)), err)
 	})
 }
 
