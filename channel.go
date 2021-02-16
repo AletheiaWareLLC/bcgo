@@ -97,6 +97,14 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 	if !bytes.Equal(head, h) {
 		return errors.New(ERROR_HASH_INCORRECT)
 	}
+
+	// Check block is valid
+	for _, v := range c.Validators {
+		if err := v.Validate(c, cache, network, head, block); err != nil {
+			return fmt.Errorf(ERROR_CHAIN_INVALID, err.Error())
+		}
+	}
+
 	if c.Head != nil {
 		b, err := cache.GetBlock(c.Head)
 		if err != nil {
@@ -104,13 +112,17 @@ func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block
 		}
 		// Check block chain is longer than current head
 		if b != nil && b.Length >= block.Length {
-			return fmt.Errorf(ERROR_CHAIN_TOO_SHORT, block.Length, b.Length)
-		}
-	}
-
-	for _, v := range c.Validators {
-		if err := v.Validate(c, cache, network, head, block); err != nil {
-			return fmt.Errorf(ERROR_CHAIN_INVALID, err.Error())
+			valid := true
+			// Check current head is still valid
+			for _, v := range c.Validators {
+				if err := v.Validate(c, cache, network, c.Head, b); err != nil {
+					valid = false
+				}
+			}
+			if valid {
+				// Current head is still valid and update is not long enough to replace it
+				return fmt.Errorf(ERROR_CHAIN_TOO_SHORT, block.Length, b.Length)
+			}
 		}
 	}
 
