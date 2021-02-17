@@ -50,40 +50,48 @@ type PeriodicValidator struct {
 	// TODO add validator that each block holds the full channel set of the previous
 	// TODO add validator that the duration between block timestamps equals or exceeds the period
 	// TODO add validator that each head reference in block is the longest chain before timestamp
-	Channel *Channel
-	Period  time.Duration
-	Ticker  *time.Ticker
+	Node      *Node
+	Channel   *Channel
+	Threshold uint64
+	Listener  MiningListener
+	Period    time.Duration
+	Ticker    *time.Ticker
 }
 
-func NewPeriodicValidator(channel *Channel, period time.Duration) *PeriodicValidator {
-	return &PeriodicValidator{
-		Channel: channel,
-		Period:  period,
+func NewPeriodicValidator(node *Node, channel *Channel, threshold uint64, listener MiningListener, period time.Duration) *PeriodicValidator {
+	p := &PeriodicValidator{
+		Node:      node,
+		Channel:   channel,
+		Threshold: threshold,
+		Listener:  listener,
+		Period:    period,
 	}
+	p.Channel.AddTrigger(p.updateValidatedChannels)
+	return p
 }
 
-func GetHourlyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_HOURLY)
+func GetHourlyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_F, listener, PERIOD_HOURLY)
 }
 
-func GetDailyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_DAILY)
+func GetDailyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_E, listener, PERIOD_DAILY)
 }
 
-func GetWeeklyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_WEEKLY)
+func GetWeeklyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_D, listener, PERIOD_WEEKLY)
 }
 
-func GetYearlyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_YEARLY)
+func GetYearlyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_C, listener, PERIOD_YEARLY)
 }
 
-func GetDecenniallyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_DECENNIALLY)
+func GetDecenniallyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_B, listener, PERIOD_DECENNIALLY)
 }
 
-func GetCentenniallyValidator(channel *Channel) *PeriodicValidator {
-	return NewPeriodicValidator(channel, PERIOD_CENTENNIALLY)
+func GetCentenniallyValidator(node *Node, channel *Channel, listener MiningListener) *PeriodicValidator {
+	return NewPeriodicValidator(node, channel, THRESHOLD_A, listener, PERIOD_CENTENNIALLY)
 }
 
 // Fills the given set with the names of all channels validated in this chain
@@ -144,8 +152,8 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 	return nil
 }
 
-func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener MiningListener, timestamp uint64) error {
-	entries, err := CreateValidationEntries(timestamp, node)
+func (p *PeriodicValidator) Update(timestamp uint64) error {
+	entries, err := CreateValidationEntries(timestamp, p.Node)
 	if err != nil {
 		return err
 	}
@@ -153,13 +161,13 @@ func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener Mining
 	head := p.Channel.Head
 	var block *Block
 	if head != nil {
-		block, err = GetBlock(name, node.Cache, node.Network, head)
+		block, err = GetBlock(name, p.Node.Cache, p.Node.Network, head)
 		if err != nil {
 			return err
 		}
 	}
-	b := CreateValidationBlock(timestamp, name, node.Alias, head, block, entries)
-	_, _, err = node.MineBlock(p.Channel, threshold, listener, b)
+	b := CreateValidationBlock(timestamp, name, p.Node.Alias, head, block, entries)
+	_, _, err = p.Node.MineBlock(p.Channel, p.Threshold, p.Listener, b)
 	if err != nil {
 		return err
 	}
@@ -167,7 +175,7 @@ func (p *PeriodicValidator) Update(node *Node, threshold uint64, listener Mining
 }
 
 // Periodically mines a new block into the chain containing the head hashes of all open channels
-func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningListener) {
+func (p *PeriodicValidator) Start() {
 	// 3 times per period
 	p.Ticker = time.NewTicker(p.Period / 3)
 	c := p.Ticker.C
@@ -185,11 +193,11 @@ func (p *PeriodicValidator) Start(node *Node, threshold uint64, listener MiningL
 				} else {
 					break
 				}
-				if err := p.Update(node, threshold, listener, timestamp); err != nil {
+				if err := p.Update(timestamp); err != nil {
 					log.Println(err)
 					break
 				}
-				if err := p.Channel.Push(node.Cache, node.Network); err != nil {
+				if err := p.Channel.Push(p.Node.Cache, p.Node.Network); err != nil {
 					log.Println(err)
 				}
 			}
@@ -204,6 +212,41 @@ func (p *PeriodicValidator) Stop() {
 	if p.Ticker != nil {
 		p.Ticker.Stop()
 		p.Ticker = nil
+	}
+}
+
+func (p *PeriodicValidator) updateValidatedChannels() {
+	// Try update all open channels in node to the head listed in the latest validator block
+	block, err := GetBlock(p.Channel.Name, p.Node.Cache, p.Node.Network, p.Channel.Head)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	for _, entry := range block.Entry {
+		// Unmarshal as Reference
+		r := &Reference{}
+		err := proto.Unmarshal(entry.Record.Payload, r)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		c, err := p.Node.GetChannel(r.ChannelName)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		b, err := GetBlock(r.ChannelName, p.Node.Cache, p.Node.Network, r.BlockHash)
+		if err == nil {
+			err = c.Update(p.Node.Cache, p.Node.Network, r.BlockHash, b)
+		}
+		if err != nil {
+			log.Println(err)
+			err = c.Pull(p.Node.Cache, p.Node.Network)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+		// TODO re-mine and push channel
 	}
 }
 

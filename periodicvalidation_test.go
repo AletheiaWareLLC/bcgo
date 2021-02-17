@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"testing"
+	"time"
 )
 
 func TestPeriodicValidator_FillChannelSet(t *testing.T) {
@@ -43,7 +44,7 @@ func TestPeriodicValidator_FillChannelSet(t *testing.T) {
 	node.AddChannel(channel)
 	block := makeBlock(t, 1234)
 	hash := makeHash(t, block)
-	channel.Update(cache, nil, hash, block)
+	testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
 	entries, err := bcgo.CreateValidationEntries(3456, node)
 	testinggo.AssertNoError(t, err)
 	b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
@@ -99,7 +100,7 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		node.AddChannel(channel)
 		blockA := makeBlock(t, 1234)
 		hashA := makeHash(t, blockA)
-		channel.Update(cache, nil, hashA, blockA)
+		testinggo.AssertNoError(t, channel.Update(cache, nil, hashA, blockA))
 		entries, err := bcgo.CreateValidationEntries(3456, node)
 		testinggo.AssertNoError(t, err)
 		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
@@ -129,7 +130,7 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		node.AddChannel(channel)
 		blockA := makeBlock(t, 1234)
 		hashA := makeHash(t, blockA)
-		channel.Update(cache, nil, hashA, blockA)
+		testinggo.AssertNoError(t, channel.Update(cache, nil, hashA, blockA))
 		entries, err := bcgo.CreateValidationEntries(3456, node)
 		testinggo.AssertNoError(t, err)
 		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
@@ -143,6 +144,123 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		err = channel.Update(cache, nil, hashC, blockC)
 		testinggo.AssertError(t, fmt.Sprintf("Chain invalid: PV Missing Validated Block TEST %s", base64.RawURLEncoding.EncodeToString(hashA)), err)
 	})
+}
+
+func TestPeriodicValidator_Validate_ForkResolution(t *testing.T) {
+	// Miners Alice and Bob both mine new blocks onto Chain A and Validator PV
+	aliceKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Error("Could not generate Alice Key:", err)
+	}
+	aliceCache := makeMockCache(t)
+	aliceNode := makeNode(t, "Alice", aliceKey, aliceCache, nil)
+	aliceValidator := bcgo.NewPeriodicValidator(aliceNode, &bcgo.Channel{
+		Name: "PV",
+	}, 0, nil, time.Second)
+	aliceValidator.Channel.AddValidator(aliceValidator)
+	aliceChannel := makeMockChannel(t)
+	aliceChannel.AddValidator(aliceValidator)
+	aliceNode.AddChannel(aliceChannel)
+
+	bobKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		t.Error("Could not generate Bob Key:", err)
+	}
+	bobCache := makeMockCache(t)
+	bobNode := makeNode(t, "Bob", bobKey, bobCache, nil)
+	bobValidator := bcgo.NewPeriodicValidator(bobNode, &bcgo.Channel{
+		Name: "PV",
+	}, 0, nil, time.Second)
+	bobValidator.Channel.AddValidator(bobValidator)
+	bobChannel := makeMockChannel(t)
+	bobChannel.AddValidator(bobValidator)
+	bobNode.AddChannel(bobChannel)
+
+	// Initial block
+	block1 := makeBlock(t, 1234)
+	hash1 := makeHash(t, block1)
+	testinggo.AssertNoError(t, aliceChannel.Update(aliceCache, nil, hash1, block1))
+	testinggo.AssertNoError(t, bobChannel.Update(bobCache, nil, hash1, block1))
+	entries, err := bcgo.CreateValidationEntries(2345, aliceNode)
+	testinggo.AssertNoError(t, err)
+	blockV1 := bcgo.CreateValidationBlock(3456, aliceValidator.Channel.Name, aliceNode.Alias, nil, nil, entries)
+	hashV1 := makeHash(t, blockV1)
+	testinggo.AssertNoError(t, aliceValidator.Channel.Update(aliceCache, nil, hashV1, blockV1))
+	testinggo.AssertNoError(t, bobValidator.Channel.Update(bobCache, nil, hashV1, blockV1))
+
+	// Fork 1 - Alice mines Channel
+	block2Fork1 := makeLinkedBlock(t, 4567, hash1, block1)
+	block2Fork1.Nonce = 1 // Make nonces different, so hash is different
+	hash2Fork1 := makeHash(t, block2Fork1)
+	testinggo.AssertNoError(t, aliceChannel.Update(aliceCache, nil, hash2Fork1, block2Fork1))
+	bobCache.PutBlock(hash2Fork1, block2Fork1)
+
+	// Fork 2 - Bob mines Channel
+	block2Fork2 := makeLinkedBlock(t, 4567, hash1, block1)
+	block2Fork2.Nonce = 2 // Make nonces different, so hash is different
+	hash2Fork2 := makeHash(t, block2Fork2)
+	testinggo.AssertNoError(t, bobChannel.Update(bobCache, nil, hash2Fork2, block2Fork2))
+	aliceCache.PutBlock(hash2Fork2, block2Fork2)
+
+	// Conflict
+	// Alice can't update Bob
+	testinggo.AssertError(t, "Chain too short to replace current head: 2 vs 2", bobChannel.Update(bobCache, nil, hash2Fork1, block2Fork1))
+	// Bob can't update Alice
+	testinggo.AssertError(t, "Chain too short to replace current head: 2 vs 2", aliceChannel.Update(aliceCache, nil, hash2Fork2, block2Fork2))
+
+	// Fork 1 - Alice mines Validator
+	entries2Fork1, err := bcgo.CreateValidationEntries(5678, aliceNode)
+	testinggo.AssertNoError(t, err)
+	blockV2Fork1 := bcgo.CreateValidationBlock(6789, aliceValidator.Channel.Name, aliceNode.Alias, hashV1, blockV1, entries2Fork1)
+	hashV2Fork1 := makeHash(t, blockV2Fork1)
+	testinggo.AssertNoError(t, aliceValidator.Channel.Update(aliceCache, nil, hashV2Fork1, blockV2Fork1))
+	bobCache.PutBlock(hashV2Fork1, blockV2Fork1)
+
+	// Fork 2 - Bob mines Validator
+	entries2Fork2, err := bcgo.CreateValidationEntries(5678, bobNode)
+	testinggo.AssertNoError(t, err)
+	blockV2Fork2 := bcgo.CreateValidationBlock(6789, bobValidator.Channel.Name, bobNode.Alias, hashV1, blockV1, entries2Fork2)
+	hashV2Fork2 := makeHash(t, blockV2Fork2)
+	testinggo.AssertNoError(t, bobValidator.Channel.Update(bobCache, nil, hashV2Fork2, blockV2Fork2))
+	aliceCache.PutBlock(hashV2Fork2, blockV2Fork2)
+
+	// Conflict
+	// Alice can't update Bob
+	testinggo.AssertError(t, "Chain too short to replace current head: 2 vs 2", bobValidator.Channel.Update(bobCache, nil, hashV2Fork1, blockV2Fork1))
+	// Bob can't update Alice
+	testinggo.AssertError(t, "Chain too short to replace current head: 2 vs 2", aliceValidator.Channel.Update(aliceCache, nil, hashV2Fork2, blockV2Fork2))
+
+	// Fork 1 - Alice mines Channel
+	block3Fork1 := makeLinkedBlock(t, 7890, hash2Fork1, block2Fork1)
+	hash3Fork1 := makeHash(t, block3Fork1)
+	testinggo.AssertNoError(t, aliceChannel.Update(aliceCache, nil, hash3Fork1, block3Fork1))
+	bobCache.PutBlock(hash3Fork1, block3Fork1)
+
+	// Fork 2 - Bob mines Channel
+	block3Fork2 := makeLinkedBlock(t, 7890, hash2Fork2, block2Fork2)
+	hash3Fork2 := makeHash(t, block3Fork2)
+	testinggo.AssertNoError(t, bobChannel.Update(bobCache, nil, hash3Fork2, block3Fork2))
+	aliceCache.PutBlock(hash3Fork2, block3Fork2)
+
+	// Conflict
+	// Alice can't update Bob
+	testinggo.AssertError(t, fmt.Sprintf("Chain invalid: PV Missing Validated Block TEST %s", base64.RawURLEncoding.EncodeToString(hash2Fork2)), bobChannel.Update(bobCache, nil, hash3Fork1, block3Fork1))
+	// Bob can't update Alice
+	testinggo.AssertError(t, fmt.Sprintf("Chain invalid: PV Missing Validated Block TEST %s", base64.RawURLEncoding.EncodeToString(hash2Fork1)), aliceChannel.Update(aliceCache, nil, hash3Fork2, block3Fork2))
+
+	// Whichever fork mines the next Validator should win, in this case Alice
+	// Fork 1 - Alice mines Validator
+	entries3Fork1, err := bcgo.CreateValidationEntries(8901, aliceNode)
+	testinggo.AssertNoError(t, err)
+	blockV3Fork1 := bcgo.CreateValidationBlock(9012, aliceValidator.Channel.Name, aliceNode.Alias, hashV2Fork1, blockV2Fork1, entries3Fork1)
+	hashV3Fork1 := makeHash(t, blockV3Fork1)
+	testinggo.AssertNoError(t, aliceValidator.Channel.Update(aliceCache, nil, hashV3Fork1, blockV3Fork1))
+
+	// Should be able to update Bob as Validator is longer
+	testinggo.AssertNoError(t, bobValidator.Channel.Update(bobCache, nil, hashV3Fork1, blockV3Fork1))
+
+	// Check Bob Channel is also updated
+	testinggo.AssertHashEqual(t, hash3Fork1, bobChannel.Head)
 }
 
 func TestCreateValidationBlock(t *testing.T) {
