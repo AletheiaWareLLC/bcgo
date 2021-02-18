@@ -45,7 +45,9 @@ func TestPeriodicValidator_FillChannelSet(t *testing.T) {
 	block := makeBlock(t, 1234)
 	hash := makeHash(t, block)
 	testinggo.AssertNoError(t, channel.Update(cache, nil, hash, block))
-	entries, err := bcgo.CreateValidationEntries(3456, node)
+	entries, err := bcgo.CreateValidationEntries(3456, node, map[string]bool{
+		channel.Name: true,
+	})
 	testinggo.AssertNoError(t, err)
 	b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 	h := makeHash(t, b)
@@ -101,7 +103,9 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		blockA := makeBlock(t, 1234)
 		hashA := makeHash(t, blockA)
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hashA, blockA))
-		entries, err := bcgo.CreateValidationEntries(3456, node)
+		entries, err := bcgo.CreateValidationEntries(3456, node, map[string]bool{
+			channel.Name: true,
+		})
 		testinggo.AssertNoError(t, err)
 		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 		h := makeHash(t, b)
@@ -131,7 +135,9 @@ func TestPeriodicValidator_Validate(t *testing.T) {
 		blockA := makeBlock(t, 1234)
 		hashA := makeHash(t, blockA)
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hashA, blockA))
-		entries, err := bcgo.CreateValidationEntries(3456, node)
+		entries, err := bcgo.CreateValidationEntries(3456, node, map[string]bool{
+			channel.Name: true,
+		})
 		testinggo.AssertNoError(t, err)
 		b := bcgo.CreateValidationBlock(5678, validator.Channel.Name, node.Alias, nil, nil, entries)
 		h := makeHash(t, b)
@@ -181,7 +187,9 @@ func TestPeriodicValidator_Validate_ForkResolution(t *testing.T) {
 	hash1 := makeHash(t, block1)
 	testinggo.AssertNoError(t, aliceChannel.Update(aliceCache, nil, hash1, block1))
 	testinggo.AssertNoError(t, bobChannel.Update(bobCache, nil, hash1, block1))
-	entries, err := bcgo.CreateValidationEntries(2345, aliceNode)
+	entries, err := bcgo.CreateValidationEntries(2345, aliceNode, map[string]bool{
+		aliceChannel.Name: true,
+	})
 	testinggo.AssertNoError(t, err)
 	blockV1 := bcgo.CreateValidationBlock(3456, aliceValidator.Channel.Name, aliceNode.Alias, nil, nil, entries)
 	hashV1 := makeHash(t, blockV1)
@@ -209,7 +217,9 @@ func TestPeriodicValidator_Validate_ForkResolution(t *testing.T) {
 	testinggo.AssertError(t, "Chain too short to replace current head: 2 vs 2", aliceChannel.Update(aliceCache, nil, hash2Fork2, block2Fork2))
 
 	// Fork 1 - Alice mines Validator
-	entries2Fork1, err := bcgo.CreateValidationEntries(5678, aliceNode)
+	entries2Fork1, err := bcgo.CreateValidationEntries(5678, aliceNode, map[string]bool{
+		aliceChannel.Name: true,
+	})
 	testinggo.AssertNoError(t, err)
 	blockV2Fork1 := bcgo.CreateValidationBlock(6789, aliceValidator.Channel.Name, aliceNode.Alias, hashV1, blockV1, entries2Fork1)
 	hashV2Fork1 := makeHash(t, blockV2Fork1)
@@ -217,7 +227,9 @@ func TestPeriodicValidator_Validate_ForkResolution(t *testing.T) {
 	bobCache.PutBlock(hashV2Fork1, blockV2Fork1)
 
 	// Fork 2 - Bob mines Validator
-	entries2Fork2, err := bcgo.CreateValidationEntries(5678, bobNode)
+	entries2Fork2, err := bcgo.CreateValidationEntries(5678, bobNode, map[string]bool{
+		bobChannel.Name: true,
+	})
 	testinggo.AssertNoError(t, err)
 	blockV2Fork2 := bcgo.CreateValidationBlock(6789, bobValidator.Channel.Name, bobNode.Alias, hashV1, blockV1, entries2Fork2)
 	hashV2Fork2 := makeHash(t, blockV2Fork2)
@@ -250,7 +262,9 @@ func TestPeriodicValidator_Validate_ForkResolution(t *testing.T) {
 
 	// Whichever fork mines the next Validator should win, in this case Alice
 	// Fork 1 - Alice mines Validator
-	entries3Fork1, err := bcgo.CreateValidationEntries(8901, aliceNode)
+	entries3Fork1, err := bcgo.CreateValidationEntries(8901, aliceNode, map[string]bool{
+		aliceChannel.Name: true,
+	})
 	testinggo.AssertNoError(t, err)
 	blockV3Fork1 := bcgo.CreateValidationBlock(9012, aliceValidator.Channel.Name, aliceNode.Alias, hashV2Fork1, blockV2Fork1, entries3Fork1)
 	hashV3Fork1 := makeHash(t, blockV3Fork1)
@@ -311,14 +325,18 @@ func TestCreateValidationEntries(t *testing.T) {
 	hash2 := makeHash(t, block2)
 	channel.Update(cache, nil, hash2, block2)
 	t.Run("Before", func(t *testing.T) {
-		entries, err := bcgo.CreateValidationEntries(0123, node)
+		entries, err := bcgo.CreateValidationEntries(0123, node, map[string]bool{
+			channel.Name: true,
+		})
 		testinggo.AssertNoError(t, err)
 		if len(entries) != 0 {
 			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 0, len(entries))
 		}
 	})
 	t.Run("Middle", func(t *testing.T) {
-		entries, err := bcgo.CreateValidationEntries(3456, node)
+		entries, err := bcgo.CreateValidationEntries(3456, node, map[string]bool{
+			channel.Name: true,
+		})
 		testinggo.AssertNoError(t, err)
 		if len(entries) != 1 {
 			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 1, len(entries))
@@ -326,7 +344,9 @@ func TestCreateValidationEntries(t *testing.T) {
 		AssertEntry(t, 1234, "TEST", hash1, entries[0])
 	})
 	t.Run("After", func(t *testing.T) {
-		entries, err := bcgo.CreateValidationEntries(9012, node)
+		entries, err := bcgo.CreateValidationEntries(9012, node, map[string]bool{
+			channel.Name: true,
+		})
 		testinggo.AssertNoError(t, err)
 		if len(entries) != 1 {
 			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 1, len(entries))

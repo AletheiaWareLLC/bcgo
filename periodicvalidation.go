@@ -56,6 +56,7 @@ type PeriodicValidator struct {
 	Listener  MiningListener
 	Period    time.Duration
 	Ticker    *time.Ticker
+	Channels  map[string]bool
 }
 
 func NewPeriodicValidator(node *Node, channel *Channel, threshold uint64, listener MiningListener, period time.Duration) *PeriodicValidator {
@@ -65,6 +66,7 @@ func NewPeriodicValidator(node *Node, channel *Channel, threshold uint64, listen
 		Threshold: threshold,
 		Listener:  listener,
 		Period:    period,
+		Channels:  make(map[string]bool),
 	}
 	p.Channel.AddTrigger(p.updateValidatedChannels)
 	return p
@@ -153,7 +155,7 @@ func (p *PeriodicValidator) Validate(channel *Channel, cache Cache, network Netw
 }
 
 func (p *PeriodicValidator) Update(timestamp uint64) error {
-	entries, err := CreateValidationEntries(timestamp, p.Node)
+	entries, err := CreateValidationEntries(timestamp, p.Node, p.Channels)
 	if err != nil {
 		return err
 	}
@@ -267,9 +269,12 @@ func CreateValidationBlock(timestamp uint64, channel, alias string, head []byte,
 	return b
 }
 
-func CreateValidationEntries(timestamp uint64, node *Node) ([]*BlockEntry, error) {
+func CreateValidationEntries(timestamp uint64, node *Node, channels map[string]bool) ([]*BlockEntry, error) {
 	var entries []*BlockEntry
 	for _, channel := range node.GetChannels() {
+		if b, ok := channels[channel.Name]; !ok || !b {
+			continue
+		}
 		head := channel.Head
 		updated := channel.Timestamp
 		if updated > timestamp {
