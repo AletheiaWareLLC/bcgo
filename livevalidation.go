@@ -21,17 +21,16 @@ import (
 	"os"
 )
 
-// Live Validation ensures the Live flag in each Records' Metadata matches the Live environment variable.
-
 const (
 	ERROR_DIFFERENT_LIVE_FLAG = "Different Live Flag; Expected '%s', got '%s'"
 )
 
+// LiveValidator ensures the Live flag in each Records' Metadata matches the Live environment variable.
 type LiveValidator struct {
 }
 
 // Validate ensures all records have a live flag in their metadata which matches the environment variable.
-func (p *LiveValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
+func (v *LiveValidator) Validate(channel *Channel, cache Cache, network Network, hash []byte, block *Block) error {
 	expected := os.Getenv(LIVE_FLAG)
 	return Iterate(channel.Name, hash, block, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
