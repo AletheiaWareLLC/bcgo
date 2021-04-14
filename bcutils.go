@@ -32,7 +32,7 @@ import (
 	"math/bits"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -188,7 +188,10 @@ func GetRootDirectory() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		root = path.Join(u.HomeDir, "bc")
+		root = filepath.Join(u.HomeDir, "bc")
+		if _, err := os.Stat(root); os.IsNotExist(err) {
+			root = GetRootDirectoryForUser(u)
+		}
 	}
 	return root, nil
 }
@@ -196,7 +199,7 @@ func GetRootDirectory() (string, error) {
 func GetKeyDirectory(directory string) (string, error) {
 	keystore, ok := os.LookupEnv("KEYS_DIRECTORY")
 	if !ok {
-		keystore = path.Join(directory, "keys")
+		keystore = filepath.Join(directory, "keys")
 	}
 	if err := os.MkdirAll(keystore, os.ModePerm); err != nil {
 		return "", err
@@ -207,7 +210,7 @@ func GetKeyDirectory(directory string) (string, error) {
 func GetCacheDirectory(directory string) (string, error) {
 	cache, ok := os.LookupEnv("CACHE_DIRECTORY")
 	if !ok {
-		cache = path.Join(directory, "cache")
+		cache = filepath.Join(directory, "cache")
 	}
 	return cache, nil
 }
@@ -215,7 +218,7 @@ func GetCacheDirectory(directory string) (string, error) {
 func GetCertificateDirectory(directory string) (string, error) {
 	certs, ok := os.LookupEnv("CERTIFICATE_DIRECTORY")
 	if !ok {
-		certs = path.Join(directory, "certificates")
+		certs = filepath.Join(directory, "certificates")
 	}
 	return certs, nil
 }
@@ -241,9 +244,9 @@ func LoadConfig() error {
 }
 
 func ReadConfig(directory string) error {
-	filepath := path.Join(directory, ".bc")
-	if _, err := os.Stat(filepath); err == nil {
-		file, err := os.Open(filepath)
+	path := filepath.Join(directory, "config")
+	if _, err := os.Stat(path); err == nil {
+		file, err := os.Open(path)
 		if err != nil {
 			return err
 		}
@@ -267,12 +270,12 @@ func ReadConfig(directory string) error {
 func SetupLogging(directory string) (*os.File, error) {
 	store, ok := os.LookupEnv("LOG_DIRECTORY")
 	if !ok {
-		store = path.Join(directory, "logs")
+		store = filepath.Join(directory, "logs")
 	}
 	if err := os.MkdirAll(store, os.ModePerm); err != nil {
 		return nil, err
 	}
-	logFile, err := os.OpenFile(path.Join(store, time.Now().UTC().Format(time.RFC3339)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
+	logFile, err := os.OpenFile(filepath.Join(store, time.Now().UTC().Format(time.RFC3339)), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +293,7 @@ func GetPeers(directory string) ([]string, error) {
 		if IsLive() {
 			filename = "peers"
 		}
-		filepath := path.Join(directory, filename)
+		filepath := filepath.Join(directory, filename)
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
 			return []string{}, nil
 		}
@@ -320,7 +323,7 @@ func AddPeer(directory, peer string) error {
 	if IsLive() {
 		filename = "peers"
 	}
-	file, err := os.OpenFile(path.Join(directory, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
+	file, err := os.OpenFile(filepath.Join(directory, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		return err
 	}
