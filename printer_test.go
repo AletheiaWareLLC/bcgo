@@ -18,6 +18,7 @@ package bcgo_test
 
 import (
 	"aletheiaware.com/bcgo"
+	"aletheiaware.com/bcgo/test"
 	"bytes"
 	"testing"
 )
@@ -26,7 +27,7 @@ func TestPrinterBlock(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
 		buffer := &bytes.Buffer{}
 		block := &bcgo.Block{}
-		hash := makeHash(t, block)
+		hash := test.NewHash(t, block)
 		bcgo.PrintBlock(buffer, "", hash, block)
 		expected := `Hash: z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg_SpIdNs6c5H0NE8XYXysP-DGNKHfuwvY7kxvUdBeoGlODJ6-SfaPg
 Timestamp: 0
@@ -44,8 +45,8 @@ Entries: 0
 	})
 	t.Run("Full", func(t *testing.T) {
 		buffer := &bytes.Buffer{}
-		record := makeRecord(t)
-		recordHash := makeHash(t, record)
+		record := test.NewMockRecord(t)
+		recordHash := test.NewHash(t, record)
 		block := &bcgo.Block{
 			ChannelName: "Foo",
 			Length:      1,
@@ -58,7 +59,7 @@ Entries: 0
 				},
 			},
 		}
-		hash := makeHash(t, block)
+		hash := test.NewHash(t, block)
 		bcgo.PrintBlock(buffer, "", hash, block)
 		expected := `Hash: Id_wPRS4LMFly6VddtGZTCdQavCJBrnBx-4SYYQZjpAoMPecVRoEvUNG57l6pwdUQ4_TMmVTqxLCDXGfvULwOg
 Timestamp: 0
@@ -110,8 +111,8 @@ Record: <nil>
 	})
 	t.Run("Full", func(t *testing.T) {
 		buffer := &bytes.Buffer{}
-		record := makeRecord(t)
-		recordHash := makeHash(t, record)
+		record := test.NewMockRecord(t)
+		recordHash := test.NewHash(t, record)
 		entry := &bcgo.BlockEntry{
 			RecordHash: recordHash,
 			Record:     record,

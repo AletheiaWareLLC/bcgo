@@ -1,5 +1,3 @@
-// +build linux
-
 /*
  * Copyright 2021 Aletheia Ware LLC
  *
@@ -16,13 +14,19 @@
  * limitations under the License.
  */
 
-package bcgo
+package test
 
 import (
-	"os/user"
-	"path/filepath"
+	"aletheiaware.com/cryptogo"
+	"github.com/golang/protobuf/proto"
+	"testing"
 )
 
-func RootDirectoryForUser(u *user.User) string {
-	return filepath.Join(u.HomeDir, ".config", "bc")
+func NewHash(t *testing.T, pb proto.Message) []byte {
+	t.Helper()
+	h, err := cryptogo.HashProtobuf(pb)
+	if err != nil {
+		t.Fatalf("Could not hash protobuf: '%s'", err)
+	}
+	return h
 }

@@ -1,5 +1,3 @@
-// +build linux
-
 /*
  * Copyright 2021 Aletheia Ware LLC
  *
@@ -16,13 +14,24 @@
  * limitations under the License.
  */
 
-package bcgo
+package test
 
 import (
-	"os/user"
-	"path/filepath"
+	"aletheiaware.com/bcgo"
+	"testing"
 )
 
-func RootDirectoryForUser(u *user.User) string {
-	return filepath.Join(u.HomeDir, ".config", "bc")
+func NewMockValidator(t *testing.T, e error) *MockValidator {
+	t.Helper()
+	return &MockValidator{
+		ValidError: e,
+	}
+}
+
+type MockValidator struct {
+	ValidError error
+}
+
+func (m *MockValidator) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.Network, hash []byte, block *bcgo.Block) error {
+	return m.ValidError
 }

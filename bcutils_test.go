@@ -18,6 +18,8 @@ package bcgo_test
 
 import (
 	"aletheiaware.com/bcgo"
+	"aletheiaware.com/bcgo/account"
+	"aletheiaware.com/bcgo/test"
 	"aletheiaware.com/cryptogo"
 	"aletheiaware.com/testinggo"
 	"bufio"
@@ -120,10 +122,10 @@ func TestMoneyToString(t *testing.T) {
 	}
 }
 
-func TestGetAlias(t *testing.T) {
+func TestAlias(t *testing.T) {
 	t.Run("EnvUnset", func(t *testing.T) {
 		unsetEnv(t, "ALIAS")
-		alias, err := bcgo.GetAlias()
+		alias, err := bcgo.Alias()
 		testinggo.AssertNoError(t, err)
 		u, err := user.Current()
 		testinggo.AssertNoError(t, err)
@@ -134,7 +136,7 @@ func TestGetAlias(t *testing.T) {
 	t.Run("EnvSet", func(t *testing.T) {
 		setEnv(t, "ALIAS", "foobar123")
 		defer unsetEnv(t, "ALIAS")
-		alias, err := bcgo.GetAlias()
+		alias, err := bcgo.Alias()
 		testinggo.AssertNoError(t, err)
 		if alias != "foobar123" {
 			t.Fatalf("Incorrect alias; expected '%s', got '%s'", "foobar123", alias)
@@ -142,10 +144,10 @@ func TestGetAlias(t *testing.T) {
 	})
 }
 
-func TestGetRootDir(t *testing.T) {
+func TestRootDir(t *testing.T) {
 	t.Run("EnvUnset", func(t *testing.T) {
 		unsetEnv(t, "ROOT_DIRECTORY")
-		root, err := bcgo.GetRootDirectory()
+		root, err := bcgo.RootDirectory()
 		testinggo.AssertNoError(t, err)
 		match, err := regexp.MatchString("^/.*/bc$", root)
 		testinggo.AssertNoError(t, err)
@@ -156,7 +158,7 @@ func TestGetRootDir(t *testing.T) {
 	t.Run("EnvSet", func(t *testing.T) {
 		setEnv(t, "ROOT_DIRECTORY", "foobar123")
 		defer unsetEnv(t, "ROOT_DIRECTORY")
-		root, err := bcgo.GetRootDirectory()
+		root, err := bcgo.RootDirectory()
 		testinggo.AssertNoError(t, err)
 		if root != "foobar123" {
 			t.Fatalf("Incorrect root directory; expected foobar123, got '%s'", root)
@@ -164,12 +166,12 @@ func TestGetRootDir(t *testing.T) {
 	})
 }
 
-func TestGetCacheDir(t *testing.T) {
+func TestCacheDir(t *testing.T) {
 	t.Run("EnvUnset", func(t *testing.T) {
 		unsetEnv(t, "CACHE_DIRECTORY")
 		temp, err := ioutil.TempDir("", "foobar")
 		defer os.Remove(temp)
-		cache, err := bcgo.GetCacheDirectory(temp)
+		cache, err := bcgo.CacheDirectory(temp)
 		testinggo.AssertNoError(t, err)
 		match, err := regexp.MatchString("^"+temp+"/cache$", cache)
 		testinggo.AssertNoError(t, err)
@@ -180,7 +182,7 @@ func TestGetCacheDir(t *testing.T) {
 	t.Run("EnvSet", func(t *testing.T) {
 		setEnv(t, "CACHE_DIRECTORY", "foobar123")
 		defer unsetEnv(t, "CACHE_DIRECTORY")
-		cache, err := bcgo.GetCacheDirectory("/foobar")
+		cache, err := bcgo.CacheDirectory("/foobar")
 		testinggo.AssertNoError(t, err)
 		if cache != "foobar123" {
 			t.Fatalf("Incorrect cache directory; expected foobar123, got '%s'", cache)
@@ -194,10 +196,8 @@ func TestCreateRecord(t *testing.T) {
 		if err != nil {
 			t.Error("Could not generate key:", err)
 		}
-		acl := map[string]*rsa.PublicKey{
-			"TESTER": &key.PublicKey,
-		}
-		k, record, err := bcgo.CreateRecord(1234, "TESTER", key, acl, nil, []byte("PAYLOAD"))
+		account := account.NewRSA(test.Alias, key)
+		k, record, err := bcgo.CreateRecord(1234, account, []bcgo.Identity{account}, nil, []byte("PAYLOAD"))
 		testinggo.AssertNoError(t, err)
 		if len(k) == 0 {
 			t.Fatalf("Record key is empty")
@@ -216,11 +216,8 @@ func TestCreateRecord(t *testing.T) {
 		}
 	})
 	t.Run("Unencrypted", func(t *testing.T) {
-		key, err := rsa.GenerateKey(rand.Reader, 4096)
-		if err != nil {
-			t.Error("Could not generate key:", err)
-		}
-		k, record, err := bcgo.CreateRecord(1234, "TESTER", key, nil, nil, []byte("PAYLOAD"))
+		account := test.NewMockAccount(t, test.Alias)
+		k, record, err := bcgo.CreateRecord(1234, account, nil, nil, []byte("PAYLOAD"))
 		testinggo.AssertNoError(t, err)
 		if len(k) != 0 {
 			t.Fatalf("Record key is not empty")

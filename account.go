@@ -1,5 +1,3 @@
-// +build linux
-
 /*
  * Copyright 2021 Aletheia Ware LLC
  *
@@ -18,11 +16,11 @@
 
 package bcgo
 
-import (
-	"os/user"
-	"path/filepath"
-)
+import "aletheiaware.com/cryptogo"
 
-func RootDirectoryForUser(u *user.User) string {
-	return filepath.Join(u.HomeDir, ".config", "bc")
+type Account interface {
+	Identity
+	Decrypt(*BlockEntry, *Record_Access, func(*BlockEntry, []byte, []byte) error) error
+	DecryptKey(*Record_Access, func([]byte) error) error
+	Sign([]byte) ([]byte, cryptogo.SignatureAlgorithm, error)
 }

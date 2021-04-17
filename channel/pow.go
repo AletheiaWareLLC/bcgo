@@ -1,7 +1,5 @@
-// +build linux
-
 /*
- * Copyright 2021 Aletheia Ware LLC
+ * Copyright 2019-21 Aletheia Ware LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +14,15 @@
  * limitations under the License.
  */
 
-package bcgo
+package channel
 
 import (
-	"os/user"
-	"path/filepath"
+	"aletheiaware.com/bcgo"
+	"aletheiaware.com/bcgo/validation"
 )
 
-func RootDirectoryForUser(u *user.User) string {
-	return filepath.Join(u.HomeDir, ".config", "bc")
+func NewPoW(name string, threshold uint64) bcgo.Channel {
+	c := New(name)
+	c.AddValidator(validation.NewPoW(threshold))
+	return c
 }

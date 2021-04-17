@@ -24,14 +24,14 @@ import (
 type LoggingMiningListener struct {
 }
 
-func (l *LoggingMiningListener) OnMiningStarted(channel *Channel, size uint64) {
-	log.Printf("Mining %s %s\n", channel.Name, BinarySizeToString(size))
+func (l *LoggingMiningListener) OnMiningStarted(channel Channel, size uint64) {
+	log.Printf("Mining %s %s\n", channel.Name(), BinarySizeToString(size))
 }
 
-func (l *LoggingMiningListener) OnNewMaxOnes(channel *Channel, nonce, ones uint64) {
-	log.Printf("Mining %s %d %d/512\n", channel.Name, nonce, ones)
+func (l *LoggingMiningListener) OnNewMaxOnes(channel Channel, nonce, ones uint64) {
+	log.Printf("Mining %s %d %d/512\n", channel.Name(), nonce, ones)
 }
 
-func (l *LoggingMiningListener) OnMiningThresholdReached(channel *Channel, hash []byte, block *Block) {
-	log.Printf("Mined %s %s %s\n", channel.Name, TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
+func (l *LoggingMiningListener) OnMiningThresholdReached(channel Channel, hash []byte, block *Block) {
+	log.Printf("Mined %s %s %s\n", channel.Name(), TimestampToString(block.Timestamp), base64.RawURLEncoding.EncodeToString(hash))
 }

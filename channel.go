@@ -19,13 +19,10 @@ package bcgo
 import (
 	"aletheiaware.com/cryptogo"
 	"bytes"
-	"crypto/rsa"
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
 	"strings"
-	"sync"
 	"unicode"
 )
 
@@ -37,118 +34,23 @@ const (
 	ERROR_NAME_INVALID    = "Name invalid: %s"
 )
 
-type Channel struct {
-	Name       string
-	Head       []byte
-	Timestamp  uint64
-	Triggers   []func()
-	Validators []Validator
-	lock       sync.Mutex
+type Channel interface {
+	fmt.Stringer
+	Name() string
+	Head() []byte
+	Timestamp() uint64
+	AddTrigger(func())
+	AddValidator(Validator)
+	Update(Cache, Network, []byte, *Block) error
+	Set(uint64, []byte)
+	Load(Cache, Network) error
+	Refresh(Cache, Network) error
+	Pull(Cache, Network) error
+	Push(Cache, Network) error
 }
 
-func NewChannel(name string) *Channel {
-	return &Channel{
-		Name: name,
-	}
-}
-
-func (c *Channel) String() string {
-	return c.Name
-}
-
-func (c *Channel) AddTrigger(trigger func()) {
-	c.Triggers = append(c.Triggers, trigger)
-}
-
-func (c *Channel) AddValidator(validator Validator) {
-	c.Validators = append(c.Validators, validator)
-}
-
-// Validates name matches channel name and all characters are in the set [a-zA-Z0-9.-_]
-func (c *Channel) ValidateName(name string) error {
-	if c.Name != name {
-		return fmt.Errorf(ERROR_NAME_INCORRECT, c.Name, name)
-	}
-	if strings.IndexFunc(name, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_'
-	}) != -1 {
-		return fmt.Errorf(ERROR_NAME_INVALID, name)
-	}
-	return nil
-}
-
-func (c *Channel) Update(cache Cache, network Network, head []byte, block *Block) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if bytes.Equal(c.Head, head) {
-		// Channel up to date
-		return nil
-	}
-
-	if err := c.ValidateName(block.ChannelName); err != nil {
-		return err
-	}
-
-	// Check hash matches block hash
-	h, err := cryptogo.HashProtobuf(block)
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(head, h) {
-		return errors.New(ERROR_HASH_INCORRECT)
-	}
-
-	// Check block is valid
-	for _, v := range c.Validators {
-		if err := v.Validate(c, cache, network, head, block); err != nil {
-			return fmt.Errorf(ERROR_CHAIN_INVALID, err.Error())
-		}
-	}
-
-	if c.Head != nil {
-		b, err := cache.GetBlock(c.Head)
-		if err != nil {
-			return err
-		}
-		// Check block chain is longer than current head
-		if b != nil && b.Length >= block.Length {
-			valid := true
-			// Check current head is still valid
-			for _, v := range c.Validators {
-				if err := v.Validate(c, cache, network, c.Head, b); err != nil {
-					valid = false
-				}
-			}
-			if valid {
-				// Current head is still valid and update is not long enough to replace it
-				return fmt.Errorf(ERROR_CHAIN_TOO_SHORT, block.Length, b.Length)
-			}
-		}
-	}
-
-	if err := cache.PutHead(c.Name, &Reference{
-		Timestamp:   block.Timestamp,
-		ChannelName: c.Name,
-		BlockHash:   head,
-	}); err != nil {
-		return err
-	}
-	if err := cache.PutBlock(head, block); err != nil {
-		return err
-	}
-	c.update(block.Timestamp, head)
-	return nil
-}
-
-func (c *Channel) update(timestamp uint64, head []byte) {
-	c.Timestamp = timestamp
-	c.Head = head
-	for _, t := range c.Triggers {
-		t()
-	}
-}
-
-func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func([]byte) error) error {
+func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Network, account Account, recordHash []byte, callback func([]byte) error) error {
+	alias := account.Alias()
 	return Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
 			if recordHash == nil || bytes.Equal(recordHash, entry.RecordHash) {
@@ -160,11 +62,7 @@ func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Net
 				} else {
 					for _, access := range entry.Record.Access {
 						if alias == "" || alias == access.Alias {
-							decryptedKey, err := cryptogo.DecryptKey(access.EncryptionAlgorithm, access.SecretKey, key)
-							if err != nil {
-								return err
-							}
-							if err := callback(decryptedKey); err != nil {
+							if err := account.DecryptKey(access, callback); err != nil {
 								return err
 							}
 						}
@@ -176,7 +74,8 @@ func ReadKey(channel string, hash []byte, block *Block, cache Cache, network Net
 	})
 }
 
-func Read(channel string, hash []byte, block *Block, cache Cache, network Network, alias string, key *rsa.PrivateKey, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
+func Read(channel string, hash []byte, block *Block, cache Cache, network Network, account Account, recordHash []byte, callback func(*BlockEntry, []byte, []byte) error) error {
+	alias := account.Alias()
 	// Decrypt each record in chain and pass to the given callback
 	return Iterate(channel, hash, block, cache, network, func(h []byte, b *Block) error {
 		for _, entry := range b.Entry {
@@ -189,7 +88,7 @@ func Read(channel string, hash []byte, block *Block, cache Cache, network Networ
 				} else {
 					for _, access := range entry.Record.Access {
 						if alias == "" || alias == access.Alias {
-							if err := DecryptRecord(entry, access, key, callback); err != nil {
+							if err := account.Decrypt(entry, access, callback); err != nil {
 								return err
 							}
 						}
@@ -216,7 +115,7 @@ func Iterate(channel string, hash []byte, block *Block, cache Cache, network Net
 	var err error
 	b := block
 	if b == nil {
-		b, err = GetBlock(channel, cache, network, hash)
+		b, err = LoadBlock(channel, cache, network, hash)
 		if err != nil {
 			return err
 		}
@@ -227,7 +126,7 @@ func Iterate(channel string, hash []byte, block *Block, cache Cache, network Net
 		}
 		hash = b.Previous
 		if hash != nil && len(hash) > 0 {
-			b, err = GetBlock(channel, cache, network, hash)
+			b, err = LoadBlock(channel, cache, network, hash)
 			if err != nil {
 				return err
 			}
@@ -250,7 +149,7 @@ func IterateChronologically(channel string, hash []byte, block *Block, cache Cac
 	// Iterate list of block hashes chronologically
 	for i := len(hashes) - 1; i >= 0; i-- {
 		hash := hashes[i]
-		block, err := GetBlock(channel, cache, network, hash)
+		block, err := LoadBlock(channel, cache, network, hash)
 		if err != nil {
 			return err
 		}
@@ -261,26 +160,8 @@ func IterateChronologically(channel string, hash []byte, block *Block, cache Cac
 	return nil
 }
 
-func (c *Channel) LoadCachedHead(cache Cache) error {
-	reference, err := cache.GetHead(c.Name)
-	if err != nil {
-		return err
-	}
-	c.update(reference.Timestamp, reference.BlockHash)
-	return nil
-}
-
-func (c *Channel) LoadHead(cache Cache, network Network) error {
-	reference, err := GetHeadReference(c.Name, cache, network)
-	if err != nil {
-		return err
-	}
-	c.update(reference.Timestamp, reference.BlockHash)
-	return nil
-}
-
-func GetHeadReference(channel string, cache Cache, network Network) (*Reference, error) {
-	reference, err := cache.GetHead(channel)
+func LoadHead(channel string, cache Cache, network Network) (*Reference, error) {
+	reference, err := cache.Head(channel)
 	if err != nil {
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
@@ -290,15 +171,15 @@ func GetHeadReference(channel string, cache Cache, network Network) (*Reference,
 	} else {
 		return reference, nil
 	}
-	reference, err = network.GetHead(channel)
+	reference, err = network.Head(channel)
 	if err != nil {
 		return nil, err
 	}
 	return reference, nil
 }
 
-func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
-	b, err := cache.GetBlock(hash)
+func LoadBlock(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
+	b, err := cache.Block(hash)
 	if err != nil {
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
@@ -309,7 +190,7 @@ func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block
 		return b, nil
 	}
 
-	b, err = network.GetBlock(&Reference{
+	b, err = network.Block(&Reference{
 		ChannelName: channel,
 		BlockHash:   hash,
 	})
@@ -324,8 +205,8 @@ func GetBlock(channel string, cache Cache, network Network, hash []byte) (*Block
 	return b, nil
 }
 
-func GetBlockContainingRecord(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
-	b, err := cache.GetBlockContainingRecord(channel, hash)
+func LoadBlockContainingRecord(channel string, cache Cache, network Network, hash []byte) (*Block, error) {
+	b, err := cache.BlockContainingRecord(channel, hash)
 	if err != nil {
 		if network == nil || reflect.ValueOf(network).IsNil() {
 			return nil, err
@@ -336,7 +217,7 @@ func GetBlockContainingRecord(channel string, cache Cache, network Network, hash
 		return b, nil
 	}
 
-	b, err = network.GetBlock(&Reference{
+	b, err = network.Block(&Reference{
 		ChannelName: channel,
 		RecordHash:  hash,
 	})
@@ -356,6 +237,16 @@ func GetBlockContainingRecord(channel string, cache Cache, network Network, hash
 	return b, nil
 }
 
+// ValidateName ensures all characters are in the set [a-zA-Z0-9.-_]
+func ValidateName(name string) error {
+	if strings.IndexFunc(name, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_'
+	}) != -1 {
+		return fmt.Errorf(ERROR_NAME_INVALID, name)
+	}
+	return nil
+}
+
 func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error) {
 	hash, err := cryptogo.HashProtobuf(record)
 	if err != nil {
@@ -372,68 +263,4 @@ func WriteRecord(channel string, cache Cache, record *Record) (*Reference, error
 		ChannelName: channel,
 		RecordHash:  hash,
 	}, nil
-}
-
-func (c *Channel) Refresh(cache Cache, network Network) error {
-	// Load Channel
-	err := c.LoadCachedHead(cache)
-	// Pull from network regardless of above err
-	if network == nil || reflect.ValueOf(network).IsNil() {
-		return err
-	}
-	// Pull Channel
-	return c.Pull(cache, network)
-}
-
-func (c *Channel) Pull(cache Cache, network Network) error {
-	if network == nil || reflect.ValueOf(network).IsNil() {
-		return nil
-	}
-	reference, err := network.GetHead(c.Name)
-	if err != nil {
-		return err
-	}
-	hash := reference.BlockHash
-	if bytes.Equal(c.Head, hash) {
-		// Channel up-to-date
-		return nil
-	}
-	// Load head block
-	block, err := GetBlock(c.Name, cache, network, hash)
-	if err != nil {
-		return err
-	}
-	// Ensure all previous blocks are loaded
-	b := block
-	for b != nil {
-		h := b.Previous
-		if h != nil && len(h) > 0 {
-			b, err = GetBlock(c.Name, cache, network, h)
-			if err != nil {
-				return err
-			}
-		} else {
-			b = nil
-		}
-	}
-	if err := c.Update(cache, network, hash, block); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Channel) Push(cache Cache, network Network) error {
-	hash := c.Head
-	if hash == nil {
-		reference, err := cache.GetHead(c.Name)
-		if err != nil {
-			return err
-		}
-		hash = reference.BlockHash
-	}
-	block, err := cache.GetBlock(hash)
-	if err != nil {
-		return err
-	}
-	return network.Broadcast(c, cache, hash, block)
 }

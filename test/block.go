@@ -1,5 +1,3 @@
-// +build linux
-
 /*
  * Copyright 2021 Aletheia Ware LLC
  *
@@ -16,13 +14,28 @@
  * limitations under the License.
  */
 
-package bcgo
+package test
 
 import (
-	"os/user"
-	"path/filepath"
+	"aletheiaware.com/bcgo"
+	"testing"
 )
 
-func RootDirectoryForUser(u *user.User) string {
-	return filepath.Join(u.HomeDir, ".config", "bc")
+func NewMockBlock(t *testing.T, timestamp uint64) *bcgo.Block {
+	t.Helper()
+	return &bcgo.Block{
+		Timestamp:   timestamp,
+		ChannelName: "TEST",
+		Length:      1,
+	}
+}
+
+func NewMockLinkedBlock(t *testing.T, timestamp uint64, prevHash []byte, prevBlock *bcgo.Block) *bcgo.Block {
+	t.Helper()
+	return &bcgo.Block{
+		Timestamp:   timestamp,
+		ChannelName: "TEST",
+		Length:      prevBlock.Length + 1,
+		Previous:    prevHash,
+	}
 }
