@@ -321,11 +321,9 @@ func TestCreateValidationEntries(t *testing.T) {
 		}
 	})
 	t.Run("Middle", func(t *testing.T) {
-		fmt.Println("****************************************************")
 		entries, err := validation.CreateValidationEntries(3456, node, map[string]bool{
 			channel.Name(): true,
 		})
-		fmt.Println("****************************************************")
 		testinggo.AssertNoError(t, err)
 		if len(entries) != 1 {
 			t.Fatalf("Incorrect number of entries; expected '%d', got '%d'", 1, len(entries))

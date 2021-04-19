@@ -100,13 +100,6 @@ func Read(channel string, hash []byte, block *Block, cache Cache, network Networ
 	})
 }
 
-type StopIterationError struct {
-}
-
-func (e StopIterationError) Error() string {
-	return "Stop Iteration"
-}
-
 func Iterate(channel string, hash []byte, block *Block, cache Cache, network Network, callback func([]byte, *Block) error) error {
 	// Iterate throught each block in the chain
 	if hash == nil {
