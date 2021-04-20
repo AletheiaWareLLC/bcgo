@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -63,9 +64,9 @@ func TestChannelHead(t *testing.T) {
 	t.Run("Neither", func(t *testing.T) {
 		cache := test.NewMockCache(t)
 		network := test.NewMockNetwork(t)
-		network.HeadError = errors.New("No Head")
+		network.HeadError = errors.New("No Such Head")
 		_, err := bcgo.LoadHead("TEST", cache, network)
-		testinggo.AssertError(t, "No Head", err)
+		testinggo.AssertError(t, "No Such Head", err)
 	})
 }
 
@@ -161,8 +162,8 @@ func TestChannelPull(t *testing.T) {
 	t.Run("Error", func(t *testing.T) {
 		channel := channel.New("TEST")
 		network := test.NewMockNetwork(t)
-		network.HeadError = errors.New("No Head")
-		testinggo.AssertError(t, "No Head", channel.Pull(nil, network))
+		network.HeadError = errors.New("No Such Head")
+		testinggo.AssertError(t, "No Such Head", channel.Pull(nil, network))
 		test.AssertNilHead(t, channel)
 	})
 	t.Run("LocalRemoteSameChainSameLength", func(t *testing.T) {
@@ -222,7 +223,6 @@ func TestChannelPull(t *testing.T) {
 		if _, ok := cache.Blocks[base64.RawURLEncoding.EncodeToString(hash2)]; !ok {
 			t.Errorf("Expected cache to hold block2")
 		}
-
 	})
 	t.Run("LocalLongerThanRemote", func(t *testing.T) {
 		block1 := test.NewMockBlock(t, 1234)
@@ -259,7 +259,7 @@ func TestChannelPush(t *testing.T) {
 		channel.Set(1234, hash)
 
 		network := test.NewMockNetwork(t)
-		network.HeadError = errors.New("No Head")
+		network.HeadError = errors.New("No Such Head")
 		network.BroadcastError = errors.New("Could not Broadcast")
 		testinggo.AssertError(t, "Could not Broadcast", channel.Push(cache, network))
 	})
@@ -276,5 +276,85 @@ func TestChannelPush(t *testing.T) {
 		testinggo.AssertNoError(t, channel.Push(cache, network))
 		testinggo.AssertHashEqual(t, hash, network.BroadcastHash)
 		testinggo.AssertProtobufEqual(t, block, network.BroadcastBlock)
+	})
+}
+
+func TestChannelRefresh(t *testing.T) {
+	t.Run("CacheError", func(t *testing.T) {
+		cache := test.NewMockCache(t)
+		channel := channel.New("TEST")
+		testinggo.AssertError(t, "No Such Head", channel.Refresh(cache, nil))
+		test.AssertNilHead(t, channel)
+	})
+	t.Run("NetworkError", func(t *testing.T) {
+		cache := test.NewMockCache(t)
+		network := test.NewMockNetwork(t)
+		network.HeadError = errors.New("No Such Head")
+		channel := channel.New("TEST")
+		testinggo.AssertError(t, "No Such Head", channel.Refresh(cache, network))
+		test.AssertNilHead(t, channel)
+	})
+	t.Run("RemoteEqualToLocal", func(t *testing.T) {
+		block := test.NewMockBlock(t, 1234)
+		hash := test.NewHash(t, block)
+		cache := test.NewMockCache(t)
+		ref := &bcgo.Reference{
+			ChannelName: "TEST",
+			BlockHash:   hash,
+		}
+		cache.Heads["TEST"] = ref
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
+		network := test.NewMockNetwork(t)
+		network.Heads["TEST"] = ref
+		network.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
+		channel := channel.New("TEST")
+		channel.Set(1234, hash)
+		testinggo.AssertNoError(t, channel.Refresh(cache, network))
+		// Channel should not change
+		testinggo.AssertHashEqual(t, hash, channel.Head())
+	})
+	t.Run("RemoteLongerThanLocal", func(t *testing.T) {
+		block1 := test.NewMockBlock(t, 1234)
+		hash1 := test.NewHash(t, block1)
+		block2 := test.NewMockLinkedBlock(t, 5678, hash1, block1)
+		hash2 := test.NewHash(t, block2)
+		cache := test.NewMockCache(t)
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		channel := channel.New("TEST")
+		channel.Set(1234, hash1)
+		network := test.NewMockNetwork(t)
+		network.Heads["TEST"] = &bcgo.Reference{
+			ChannelName: "TEST",
+			BlockHash:   hash2,
+		}
+		network.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		network.Blocks[base64.RawURLEncoding.EncodeToString(hash2)] = block2
+		testinggo.AssertNoError(t, channel.Refresh(cache, network))
+		// Channel should change
+		testinggo.AssertHashEqual(t, hash2, channel.Head())
+		// Network should not receive broadcast
+		assert.Nil(t, network.BroadcastHash)
+	})
+	t.Run("LocalLongerThanRemote", func(t *testing.T) {
+		block1 := test.NewMockBlock(t, 1234)
+		hash1 := test.NewHash(t, block1)
+		block2 := test.NewMockLinkedBlock(t, 5678, hash1, block1)
+		hash2 := test.NewHash(t, block2)
+		cache := test.NewMockCache(t)
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash2)] = block2
+		channel := channel.New("TEST")
+		channel.Set(5678, hash2)
+		network := test.NewMockNetwork(t)
+		network.Heads["TEST"] = &bcgo.Reference{
+			ChannelName: "TEST",
+			BlockHash:   hash1,
+		}
+		network.Blocks[base64.RawURLEncoding.EncodeToString(hash1)] = block1
+		testinggo.AssertNoError(t, channel.Refresh(cache, network))
+		// Channel should not change
+		testinggo.AssertHashEqual(t, hash2, channel.Head())
+		// Network should receive broadcast
+		testinggo.AssertHashEqual(t, hash2, network.BroadcastHash)
 	})
 }

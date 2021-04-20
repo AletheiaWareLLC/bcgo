@@ -147,7 +147,15 @@ func (c *channel) Refresh(cache bcgo.Cache, network bcgo.Network) error {
 		return err
 	}
 	// Pull Channel
-	return c.Pull(cache, network)
+	err = c.Pull(cache, network)
+	switch e := err.(type) {
+	case bcgo.ErrChainTooShort:
+		if e.LengthA > e.LengthB {
+			// The local chain is longer than the remote, push local chain to remote.
+			err = c.Push(cache, network)
+		}
+	}
+	return err
 }
 
 func (c *channel) Pull(cache bcgo.Cache, network bcgo.Network) error {
@@ -182,12 +190,6 @@ func (c *channel) Pull(cache bcgo.Cache, network bcgo.Network) error {
 		}
 	}
 	if err := c.Update(cache, network, hash, block); err != nil {
-		/* TODO
-		if e, ok := err.(bcgo.ChainTooShortError); ok {
-			// The local chain is longer than the remote, push local chain to remote.
-			return c.Push()
-		}
-		*/
 		return err
 	}
 	return nil

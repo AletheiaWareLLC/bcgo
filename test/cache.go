@@ -49,7 +49,7 @@ type MockCache struct {
 func (m *MockCache) Block(hash []byte) (*bcgo.Block, error) {
 	m.Hash = append(m.Hash, hash)
 	if len(m.Blocks) == 0 {
-		return nil, errors.New("No Blocks")
+		return nil, errors.New("No Such Block")
 	}
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	result, ok := m.Blocks[key]
@@ -62,7 +62,7 @@ func (m *MockCache) Block(hash []byte) (*bcgo.Block, error) {
 func (m *MockCache) Head(channel string) (*bcgo.Reference, error) {
 	m.Channel = append(m.Channel, channel)
 	if len(m.Heads) == 0 {
-		return nil, errors.New("No Heads")
+		return nil, errors.New("No Such Head")
 	}
 	result, ok := m.Heads[channel]
 	if !ok {
