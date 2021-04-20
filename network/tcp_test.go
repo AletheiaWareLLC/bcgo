@@ -374,6 +374,6 @@ func TestTCPNetwork_Broadcast(t *testing.T) {
 			block1.String(): netHash2,
 		})
 
-		testinggo.AssertError(t, bcgo.ERROR_CHANNEL_OUT_OF_DATE, channel.Push(cache, network))
+		testinggo.AssertError(t, bcgo.ErrChannelOutOfDate{Channel: "TEST"}.Error(), channel.Push(cache, network))
 	})
 }

@@ -20,8 +20,6 @@ import (
 	"aletheiaware.com/bcgo"
 	"aletheiaware.com/cryptogo"
 	"bytes"
-	"errors"
-	"fmt"
 	"reflect"
 	"sync"
 )
@@ -74,7 +72,7 @@ func (c *channel) Update(cache bcgo.Cache, network bcgo.Network, head []byte, bl
 	}
 
 	if c.name != block.ChannelName {
-		return fmt.Errorf(bcgo.ERROR_NAME_INCORRECT, c.name, block.ChannelName)
+		return bcgo.ErrChannelNameIncorrect{Expected: c.name, Actual: block.ChannelName}
 	}
 
 	if err := bcgo.ValidateName(block.ChannelName); err != nil {
@@ -87,13 +85,13 @@ func (c *channel) Update(cache bcgo.Cache, network bcgo.Network, head []byte, bl
 		return err
 	}
 	if !bytes.Equal(head, h) {
-		return errors.New(bcgo.ERROR_HASH_INCORRECT)
+		return bcgo.ErrBlockHashIncorrect{}
 	}
 
 	// Check block is valid
 	for _, v := range c.validators {
 		if err := v.Validate(c, cache, network, head, block); err != nil {
-			return fmt.Errorf(bcgo.ERROR_CHAIN_INVALID, err.Error())
+			return bcgo.ErrChainInvalid{Reason: err.Error()}
 		}
 	}
 
@@ -113,7 +111,7 @@ func (c *channel) Update(cache bcgo.Cache, network bcgo.Network, head []byte, bl
 			}
 			if valid {
 				// Current head is still valid and update is not long enough to replace it
-				return fmt.Errorf(bcgo.ERROR_CHAIN_TOO_SHORT, block.Length, b.Length)
+				return bcgo.ErrChainTooShort{LengthA: b.Length, LengthB: block.Length}
 			}
 		}
 	}
@@ -184,6 +182,12 @@ func (c *channel) Pull(cache bcgo.Cache, network bcgo.Network) error {
 		}
 	}
 	if err := c.Update(cache, network, hash, block); err != nil {
+		/* TODO
+		if e, ok := err.(bcgo.ChainTooShortError); ok {
+			// The local chain is longer than the remote, push local chain to remote.
+			return c.Push()
+		}
+		*/
 		return err
 	}
 	return nil

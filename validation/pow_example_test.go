@@ -40,5 +40,5 @@ func ExamplePoW() {
 		log.Fatal("Could not hash block:", err)
 	}
 	fmt.Println(validator.Validate(channel, cache, nil, hash, block))
-	// Output: Hash doesn't meet Proof-of-Work threshold: 262 vs 288
+	// Output: Hash doesn't meet Proof-of-Work threshold: 288 vs 262
 }

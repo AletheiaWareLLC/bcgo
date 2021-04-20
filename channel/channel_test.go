@@ -24,7 +24,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"testing"
 )
 
@@ -81,7 +80,7 @@ func TestChannelUpdate(t *testing.T) {
 	t.Run("WrongHash", func(t *testing.T) {
 		block := test.NewMockBlock(t, 1234)
 		channel := channel.New("TEST")
-		testinggo.AssertError(t, bcgo.ERROR_HASH_INCORRECT, channel.Update(nil, nil, []byte("WRONGHASH"), block))
+		testinggo.AssertError(t, bcgo.ErrBlockHashIncorrect{}.Error(), channel.Update(nil, nil, []byte("WRONGHASH"), block))
 	})
 	t.Run("ShortChain", func(t *testing.T) {
 		block := test.NewMockBlock(t, 1234)
@@ -96,7 +95,7 @@ func TestChannelUpdate(t *testing.T) {
 		channel := channel.New("TEST")
 		cache := test.NewMockCache(t)
 		testinggo.AssertNoError(t, channel.Update(cache, nil, hash2, block2))
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2), channel.Update(cache, nil, hash, block))
+		testinggo.AssertError(t, bcgo.ErrChainTooShort{LengthA: 2, LengthB: 1}.Error(), channel.Update(cache, nil, hash, block))
 	})
 	t.Run("InvalidChain", func(t *testing.T) {
 		block := test.NewMockBlock(t, 1234)
@@ -196,7 +195,7 @@ func TestChannelPull(t *testing.T) {
 			BlockHash:   netHash,
 		}
 		network.Blocks[base64.RawURLEncoding.EncodeToString(netHash)] = netBlock
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 1), channel.Pull(cache, network))
+		testinggo.AssertError(t, bcgo.ErrChainTooShort{LengthA: 1, LengthB: 1}.Error(), channel.Pull(cache, network))
 		// Channel should not change
 		testinggo.AssertHashEqual(t, hash, channel.Head())
 	})
@@ -236,7 +235,7 @@ func TestChannelPull(t *testing.T) {
 		channel := channel.New("TEST")
 		channel.Set(5678, hash2)
 
-		expected := fmt.Sprintf(bcgo.ERROR_CHAIN_TOO_SHORT, 1, 2)
+		expected := bcgo.ErrChainTooShort{LengthA: 2, LengthB: 1}.Error()
 
 		network := test.NewMockNetwork(t)
 		network.Heads["TEST"] = &bcgo.Reference{

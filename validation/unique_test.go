@@ -23,7 +23,6 @@ import (
 	"aletheiaware.com/bcgo/validation"
 	"aletheiaware.com/testinggo"
 	"encoding/base64"
-	"fmt"
 	"testing"
 )
 
@@ -59,6 +58,6 @@ func TestUniqueValidation(t *testing.T) {
 		channel.AddValidator(&validation.Unique{})
 		cache := test.NewMockCache(t)
 		cache.PutBlock(hash, block)
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_INVALID, fmt.Sprintf(validation.ERROR_DUPLICATE_ENTRY, base64.RawURLEncoding.EncodeToString(eh))), channel.Update(cache, nil, hash, block))
+		testinggo.AssertError(t, bcgo.ErrChainInvalid{Reason: validation.ErrDuplicateEntry{Hash: base64.RawURLEncoding.EncodeToString(eh)}.Error()}.Error(), channel.Update(cache, nil, hash, block))
 	})
 }

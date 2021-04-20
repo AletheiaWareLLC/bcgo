@@ -26,14 +26,6 @@ import (
 	"unicode"
 )
 
-const (
-	ERROR_CHAIN_INVALID   = "Chain invalid: %s"
-	ERROR_CHAIN_TOO_SHORT = "Chain too short to replace current head: %d vs %d"
-	ERROR_HASH_INCORRECT  = "Hash doesn't match block hash"
-	ERROR_NAME_INCORRECT  = "Name doesn't match channel name: %s vs %s"
-	ERROR_NAME_INVALID    = "Name invalid: %s"
-)
-
 type Channel interface {
 	fmt.Stringer
 	Name() string
@@ -235,7 +227,7 @@ func ValidateName(name string) error {
 	if strings.IndexFunc(name, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-' && r != '_'
 	}) != -1 {
-		return fmt.Errorf(ERROR_NAME_INVALID, name)
+		return ErrChannelNameInvalid{name}
 	}
 	return nil
 }

@@ -24,7 +24,6 @@ import (
 	"aletheiaware.com/testinggo"
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"testing"
 )
 
@@ -37,7 +36,7 @@ func TestMemoryBlock(t *testing.T) {
 	block := test.NewMockBlock(t, 1234)
 	hash := test.NewHash(t, block)
 	_, err := mc.Block(hash)
-	testinggo.AssertError(t, fmt.Sprintf(cache.ERROR_BLOCK_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
+	testinggo.AssertError(t, bcgo.ErrNoSuchBlock{Hash: base64.RawURLEncoding.EncodeToString(hash)}.Error(), err)
 }
 
 func TestMemoryPutBlock(t *testing.T) {
@@ -57,7 +56,7 @@ func TestMemoryPutBlock(t *testing.T) {
 // 	testinggo.AssertNoError(t, mc.PutBlock(hash, block))
 // 	testinggo.AssertNoError(t, mc.DeleteBlock(hash))
 // 	_, err := mc.Block(hash)
-// 	testinggo.AssertError(t, fmt.Sprintf(cache.ERROR_BLOCK_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
+// 	testinggo.AssertError(t, bcgo.ErrNoSuchBlock{Hash: base64.RawURLEncoding.EncodeToString(hash)}.Error(), err)
 // }
 
 func TestMemoryBlockEntries(t *testing.T) {
@@ -136,7 +135,7 @@ func TestMemoryBlockContainingRecord(t *testing.T) {
 		mc := cache.NewMemory(SIZE)
 		hash := []byte("FOOBAR")
 		_, err := mc.BlockContainingRecord("TEST", hash)
-		testinggo.AssertError(t, fmt.Sprintf(cache.ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, base64.RawURLEncoding.EncodeToString(hash)), err)
+		testinggo.AssertError(t, bcgo.ErrNoSuchMapping{Hash: base64.RawURLEncoding.EncodeToString(hash)}.Error(), err)
 	})
 	t.Run("Exists", func(t *testing.T) {
 		mc := cache.NewMemory(SIZE)
@@ -158,7 +157,7 @@ func TestMemoryBlockContainingRecord(t *testing.T) {
 func TestMemoryHead(t *testing.T) {
 	mc := cache.NewMemory(SIZE)
 	_, err := mc.Head("TEST")
-	testinggo.AssertError(t, fmt.Sprintf(cache.ERROR_HEAD_NOT_FOUND, "TEST"), err)
+	testinggo.AssertError(t, bcgo.ErrNoSuchHead{Channel: "TEST"}.Error(), err)
 }
 
 func TestMemoryPutHead(t *testing.T) {

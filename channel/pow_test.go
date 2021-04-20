@@ -23,7 +23,6 @@ import (
 	"aletheiaware.com/bcgo/validation"
 	"aletheiaware.com/testinggo"
 	"encoding/base64"
-	"fmt"
 	"testing"
 )
 
@@ -42,6 +41,6 @@ func TestPoW(t *testing.T) {
 		channel := channel.NewPoW("TEST", 1000)
 		cache := test.NewMockCache(t)
 		cache.Blocks[base64.RawURLEncoding.EncodeToString(hash)] = block
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_INVALID, fmt.Sprintf(validation.ERROR_HASH_TOO_WEAK, 255, 1000)), channel.Update(cache, nil, hash, block))
+		testinggo.AssertError(t, bcgo.ErrChainInvalid{Reason: validation.ErrHashTooWeak{Expected: 1000, Actual: 255}.Error()}.Error(), channel.Update(cache, nil, hash, block))
 	})
 }

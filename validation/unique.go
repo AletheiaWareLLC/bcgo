@@ -19,12 +19,6 @@ package validation
 import (
 	"aletheiaware.com/bcgo"
 	"encoding/base64"
-	"fmt"
-)
-
-const (
-	ERROR_DUPLICATE_BLOCK = "Duplicate Block: %s"
-	ERROR_DUPLICATE_ENTRY = "Duplicate Entry: %s"
 )
 
 type Unique struct {
@@ -36,14 +30,14 @@ func (v *Unique) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.N
 	return bcgo.Iterate(channel.Name(), hash, block, cache, network, func(h []byte, b *bcgo.Block) error {
 		id := base64.RawURLEncoding.EncodeToString(h)
 		if _, ok := blocks[id]; ok {
-			return fmt.Errorf(ERROR_DUPLICATE_BLOCK, id)
+			return ErrDuplicateBlock{id}
 		} else {
 			blocks[id] = true
 		}
 		for _, entry := range b.Entry {
 			id := base64.RawURLEncoding.EncodeToString(entry.RecordHash)
 			if _, ok := entries[id]; ok {
-				return fmt.Errorf(ERROR_DUPLICATE_ENTRY, id)
+				return ErrDuplicateEntry{id}
 			} else {
 				entries[id] = true
 			}

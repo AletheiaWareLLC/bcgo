@@ -18,11 +18,6 @@ package validation
 
 import (
 	"aletheiaware.com/bcgo"
-	"fmt"
-)
-
-const (
-	ERROR_HASH_TOO_WEAK = "Hash doesn't meet Proof-of-Work threshold: %d vs %d"
 )
 
 type PoW interface {
@@ -44,7 +39,7 @@ func (v *pow) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.Netw
 		// Check hash ones pass threshold
 		ones := bcgo.Ones(h)
 		if ones < v.threshold {
-			return fmt.Errorf(ERROR_HASH_TOO_WEAK, ones, v.threshold)
+			return ErrHashTooWeak{Expected: v.threshold, Actual: ones}
 		}
 		return nil
 	})

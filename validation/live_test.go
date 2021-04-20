@@ -22,7 +22,6 @@ import (
 	"aletheiaware.com/bcgo/test"
 	"aletheiaware.com/bcgo/validation"
 	"aletheiaware.com/testinggo"
-	"fmt"
 	"testing"
 )
 
@@ -64,6 +63,6 @@ func TestLiveValidation(t *testing.T) {
 		channel.AddValidator(&validation.Live{})
 		cache := test.NewMockCache(t)
 		cache.PutBlock(hash, block)
-		testinggo.AssertError(t, fmt.Sprintf(bcgo.ERROR_CHAIN_INVALID, fmt.Sprintf(validation.ERROR_DIFFERENT_LIVE_FLAG, "foo", "")), channel.Update(cache, nil, hash, block))
+		testinggo.AssertError(t, bcgo.ErrChainInvalid{Reason: validation.ErrDifferentLiveFlag{Expected: "foo", Actual: ""}.Error()}.Error(), channel.Update(cache, nil, hash, block))
 	})
 }

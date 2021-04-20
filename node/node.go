@@ -18,7 +18,6 @@ package node
 
 import (
 	"aletheiaware.com/bcgo"
-	"fmt"
 	"sort"
 	"sync"
 )
@@ -63,7 +62,7 @@ func (n *node) Channel(name string) (bcgo.Channel, error) {
 	defer n.lock.Unlock()
 	c, ok := n.channels[name]
 	if !ok {
-		return nil, fmt.Errorf(bcgo.ERROR_NO_SUCH_CHANNEL, name)
+		return nil, bcgo.ErrNoSuchChannel{Channel: name}
 	}
 	return c, nil
 }
@@ -103,7 +102,7 @@ func (n *node) Channels() []bcgo.Channel {
 func (n *node) Write(timestamp uint64, channel bcgo.Channel, access []bcgo.Identity, references []*bcgo.Reference, payload []byte) (*bcgo.Reference, error) {
 	size := uint64(len(payload))
 	if size > bcgo.MAX_PAYLOAD_SIZE_BYTES {
-		return nil, fmt.Errorf(bcgo.ERROR_PAYLOAD_TOO_LARGE, bcgo.BinarySizeToString(size), bcgo.BinarySizeToString(bcgo.MAX_PAYLOAD_SIZE_BYTES))
+		return nil, bcgo.ErrPayloadTooLarge{Size: size, Max: bcgo.MAX_PAYLOAD_SIZE_BYTES}
 	}
 	_, record, err := bcgo.CreateRecord(timestamp, n.account, access, references, payload)
 	if err != nil {

@@ -18,12 +18,7 @@ package validation
 
 import (
 	"aletheiaware.com/bcgo"
-	"fmt"
 	"os"
-)
-
-const (
-	ERROR_DIFFERENT_LIVE_FLAG = "Different Live Flag; Expected '%s', got '%s'"
 )
 
 // Live is a validator which ensures the Live flag in each Records' Metadata matches the Live environment variable.
@@ -40,7 +35,7 @@ func (v *Live) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo.Net
 				flag = meta[bcgo.LIVE_FLAG]
 			}
 			if flag != expected {
-				return fmt.Errorf(ERROR_DIFFERENT_LIVE_FLAG, expected, flag)
+				return ErrDifferentLiveFlag{Expected: expected, Actual: flag}
 			}
 		}
 		return nil

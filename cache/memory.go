@@ -19,13 +19,6 @@ package cache
 import (
 	"aletheiaware.com/bcgo"
 	"encoding/base64"
-	"fmt"
-)
-
-const (
-	ERROR_BLOCK_NOT_FOUND                   = "Block not found %s"
-	ERROR_HEAD_NOT_FOUND                    = "Head not found %s"
-	ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND = "Record to Block Mapping not found %s"
 )
 
 type Memory struct {
@@ -51,7 +44,7 @@ func (m *Memory) Block(hash []byte) (*bcgo.Block, error) {
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	block, ok := m.Blocks[key]
 	if !ok {
-		return nil, fmt.Errorf(ERROR_BLOCK_NOT_FOUND, key)
+		return nil, bcgo.ErrNoSuchBlock{Hash: key}
 	}
 	return block, nil
 }
@@ -70,7 +63,7 @@ func (m *Memory) BlockContainingRecord(channel string, hash []byte) (*bcgo.Block
 	key := base64.RawURLEncoding.EncodeToString(hash)
 	block, ok := m.Mapping[key]
 	if !ok {
-		return nil, fmt.Errorf(ERROR_RECORD_TO_BLOCK_MAPPING_NOT_FOUND, key)
+		return nil, bcgo.ErrNoSuchMapping{Hash: key}
 	}
 	return block, nil
 }
@@ -78,7 +71,7 @@ func (m *Memory) BlockContainingRecord(channel string, hash []byte) (*bcgo.Block
 func (m *Memory) Head(channel string) (*bcgo.Reference, error) {
 	reference, ok := m.Heads[channel]
 	if !ok {
-		return nil, fmt.Errorf(ERROR_HEAD_NOT_FOUND, channel)
+		return nil, bcgo.ErrNoSuchHead{Channel: channel}
 	}
 	return reference, nil
 }

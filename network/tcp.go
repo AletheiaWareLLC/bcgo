@@ -21,7 +21,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -221,7 +220,7 @@ func (t *TCP) Broadcast(channel bcgo.Channel, cache bcgo.Cache, hash []byte, blo
 							log.Println(err)
 						}
 					}()
-					return errors.New(bcgo.ERROR_CHANNEL_OUT_OF_DATE)
+					return bcgo.ErrChannelOutOfDate{Channel: channel.Name()}
 					// TODO re-mine all dropped records into new blocks on top of new head
 				} else {
 					// Option C: remote points to a shorter chain, and cannot update because the chain cannot be verified or the host is missing some blocks

@@ -18,15 +18,8 @@ package bcgo
 
 import (
 	"aletheiaware.com/cryptogo"
-	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"sort"
-)
-
-const (
-	ERROR_NO_ENTRIES_TO_MINE = "No entries to mine for channel: %s"
-	ERROR_NONCE_WRAP_AROUND  = "Nonce wrapped around before reaching threshold"
 )
 
 type MiningListener interface {
@@ -62,12 +55,12 @@ func LastMinedTimestamp(node Node, channel Channel) (uint64, error) {
 	if err := Iterate(channel.Name(), channel.Head(), nil, node.Cache(), node.Network(), func(h []byte, b *Block) error {
 		if b.Miner == alias {
 			timestamp = b.Timestamp
-			return StopIterationError{}
+			return ErrStopIteration{}
 		}
 		return nil
 	}); err != nil {
 		switch err.(type) {
-		case StopIterationError:
+		case ErrStopIteration:
 			// Do nothing
 			break
 		default:
@@ -98,7 +91,7 @@ func Mine(node Node, channel Channel, threshold uint64, listener MiningListener)
 
 func MineEntries(node Node, channel Channel, threshold uint64, listener MiningListener, entries []*BlockEntry) ([]byte, *Block, error) {
 	if len(entries) == 0 {
-		return nil, nil, fmt.Errorf(ERROR_NO_ENTRIES_TO_MINE, channel.Name())
+		return nil, nil, ErrNoEntriesToMine{channel.Name()}
 	}
 
 	// TODO check record signature of each entry
@@ -127,7 +120,7 @@ func MineEntries(node Node, channel Channel, threshold uint64, listener MiningLi
 func MineBlock(node Node, channel Channel, threshold uint64, listener MiningListener, block *Block) ([]byte, *Block, error) {
 	size := uint64(proto.Size(block))
 	if size > MAX_BLOCK_SIZE_BYTES {
-		return nil, nil, fmt.Errorf(ERROR_BLOCK_TOO_LARGE, BinarySizeToString(size), BinarySizeToString(MAX_BLOCK_SIZE_BYTES))
+		return nil, nil, ErrBlockTooLarge{size, MAX_BLOCK_SIZE_BYTES}
 	}
 
 	if listener != nil {
@@ -159,5 +152,5 @@ func MineBlock(node Node, channel Channel, threshold uint64, listener MiningList
 			return hash, block, nil
 		}
 	}
-	return nil, nil, errors.New(ERROR_NONCE_WRAP_AROUND)
+	return nil, nil, ErrNonceWrapAround{}
 }

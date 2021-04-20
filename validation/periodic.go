@@ -20,18 +20,14 @@ import (
 	"aletheiaware.com/bcgo"
 	"aletheiaware.com/cryptogo"
 	"encoding/base64"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"log"
-	"strings"
 	"time"
 )
 
 // Periodic Validation Chains strengthen the Network by increasing the computational resources needed to attack it.
 
 const (
-	ERROR_MISSING_VALIDATED_BLOCK = "%s Missing Validated Block %s %s"
-
 	PERIOD_HOURLY       = time.Hour
 	PERIOD_DAILY        = PERIOD_HOURLY * 24
 	PERIOD_WEEKLY       = PERIOD_HOURLY * 168    // (24 * 7)
@@ -164,7 +160,7 @@ func (p *periodic) Validate(channel bcgo.Channel, cache bcgo.Cache, network bcgo
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf(ERROR_MISSING_VALIDATED_BLOCK, p.Channel.Name(), name, strings.Join(missing, ","))
+		return ErrMissingValidatedBlock{PVC: p.Channel.Name(), Channel: name, Missing: missing}
 	}
 	return nil
 }
@@ -306,12 +302,12 @@ func CreateValidationEntries(timestamp uint64, node bcgo.Node, channels map[stri
 				if b.Timestamp <= timestamp {
 					head = h
 					updated = b.Timestamp
-					return bcgo.StopIterationError{}
+					return bcgo.ErrStopIteration{}
 				}
 				return nil
 			}); err != nil {
 				switch err.(type) {
-				case bcgo.StopIterationError:
+				case bcgo.ErrStopIteration:
 					// Do nothing
 				default:
 					return nil, err
