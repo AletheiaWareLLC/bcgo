@@ -22,7 +22,6 @@ import (
 	"aletheiaware.com/cryptogo"
 	"crypto/rand"
 	"crypto/rsa"
-	"fmt"
 )
 
 type rsaAccount struct {
@@ -82,7 +81,7 @@ func (a *rsaAccount) Decrypt(entry *bcgo.BlockEntry, access *bcgo.Record_Access,
 	case cryptogo.EncryptionAlgorithm_UNKNOWN_ENCRYPTION:
 		return callback(entry, nil, record.Payload)
 	default:
-		return fmt.Errorf(cryptogo.ERROR_UNSUPPORTED_ENCRYPTION, record.EncryptionAlgorithm.String())
+		return cryptogo.ErrUnsupportedEncryption{Algorithm: record.EncryptionAlgorithm.String()}
 	}
 }
 
