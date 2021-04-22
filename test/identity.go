@@ -33,11 +33,10 @@ func NewMockIdentity(t *testing.T, alias string) bcgo.Identity {
 type MockIdentity struct {
 	alias                                   string
 	PublicKeyError                          error
-	EncryptionAlgorithm                     cryptogo.EncryptionAlgorithm
-	EncryptionData                          []byte
-	EncryptionKeyAccess                     *bcgo.Record_Access
-	EncryptionError, EncryptionKeyError     error
-	PlainTextData, PlainTextKey             []byte
+	EncryptKeyAlgorithm                     cryptogo.EncryptionAlgorithm
+	EncryptKeyKey                           []byte
+	EncryptKeyError                         error
+	PlainTextKey                            []byte
 	VerificationData, VerificationSignature []byte
 	VerificationAlgorithm                   cryptogo.SignatureAlgorithm
 	VerificationError                       error
@@ -51,14 +50,9 @@ func (a *MockIdentity) PublicKey() ([]byte, cryptogo.PublicKeyFormat, error) {
 	return nil, cryptogo.PublicKeyFormat_UNKNOWN_PUBLIC_KEY_FORMAT, a.PublicKeyError
 }
 
-func (a *MockIdentity) Encrypt(data []byte) ([]byte, cryptogo.EncryptionAlgorithm, error) {
-	a.PlainTextData = data
-	return a.EncryptionData, a.EncryptionAlgorithm, a.EncryptionError
-}
-
-func (a *MockIdentity) EncryptKey(key []byte) (*bcgo.Record_Access, error) {
+func (a *MockIdentity) EncryptKey(key []byte) ([]byte, cryptogo.EncryptionAlgorithm, error) {
 	a.PlainTextKey = key
-	return a.EncryptionKeyAccess, a.EncryptionKeyError
+	return a.EncryptKeyKey, a.EncryptKeyAlgorithm, a.EncryptKeyError
 }
 
 func (a *MockIdentity) Verify(data, signature []byte, algorithm cryptogo.SignatureAlgorithm) error {

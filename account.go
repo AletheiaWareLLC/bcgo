@@ -20,7 +20,6 @@ import "aletheiaware.com/cryptogo"
 
 type Account interface {
 	Identity
-	Decrypt(*BlockEntry, *Record_Access, func(*BlockEntry, []byte, []byte) error) error
-	DecryptKey(*Record_Access, func([]byte) error) error
+	DecryptKey(cryptogo.EncryptionAlgorithm, []byte) ([]byte, error)
 	Sign([]byte) ([]byte, cryptogo.SignatureAlgorithm, error)
 }
