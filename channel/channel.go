@@ -135,7 +135,9 @@ func (c *channel) Load(cache bcgo.Cache, network bcgo.Network) error {
 	if err != nil {
 		return err
 	}
-	c.Set(reference.Timestamp, reference.BlockHash)
+	if c.timestamp < reference.Timestamp {
+		c.Set(reference.Timestamp, reference.BlockHash)
+	}
 	return nil
 }
 
