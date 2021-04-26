@@ -32,12 +32,24 @@ func NewMockAccount(t *testing.T, alias string) bcgo.Account {
 
 type MockAccount struct {
 	MockIdentity
+	DecryptAlgorithm    cryptogo.EncryptionAlgorithm
+	DecryptPayload      []byte
+	DecryptPlainText    []byte
+	DecryptInKey        []byte
+	DecryptError        error
 	DecryptKeyAlgorithm cryptogo.EncryptionAlgorithm
 	DecryptKeyKey       []byte
 	DecryptKeyError     error
-	Signature           []byte
 	SignatureAlgorithm  cryptogo.SignatureAlgorithm
+	Signature           []byte
 	SignatureError      error
+}
+
+func (a *MockAccount) Decrypt(algorithm cryptogo.EncryptionAlgorithm, payload, key []byte) ([]byte, error) {
+	a.DecryptAlgorithm = algorithm
+	a.DecryptPayload = payload
+	a.DecryptInKey = key
+	return a.DecryptPlainText, a.DecryptError
 }
 
 func (a *MockAccount) DecryptKey(algorithm cryptogo.EncryptionAlgorithm, key []byte) ([]byte, error) {
@@ -46,6 +58,6 @@ func (a *MockAccount) DecryptKey(algorithm cryptogo.EncryptionAlgorithm, key []b
 	return a.PlainTextKey, a.DecryptKeyError
 }
 
-func (a *MockAccount) Sign(data []byte) ([]byte, cryptogo.SignatureAlgorithm, error) {
-	return a.Signature, a.SignatureAlgorithm, a.SignatureError
+func (a *MockAccount) Sign(data []byte) (cryptogo.SignatureAlgorithm, []byte, error) {
+	return a.SignatureAlgorithm, a.Signature, a.SignatureError
 }
