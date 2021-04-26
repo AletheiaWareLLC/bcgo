@@ -57,6 +57,7 @@ func (c *channel) String() string {
 
 func (c *channel) AddTrigger(trigger func()) {
 	c.triggers = append(c.triggers, trigger)
+	trigger()
 }
 
 func (c *channel) AddValidator(validator bcgo.Validator) {
